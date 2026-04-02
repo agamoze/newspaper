@@ -1,35 +1,38 @@
 """
 My News Button 📰
-Shows only recent articles (today + last 48 hours) - grouped by Topic
+Now with checkboxes + custom topic support
 """
 
 import time
 import streamlit as st
 import feedparser
 import pandas as pd
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 from urllib.parse import quote
 
 # Page Config
 st.set_page_config(page_title="My News Button", page_icon="📰", layout="wide")
 
-# Default Settings
-DEFAULT_PUBLISHERS = [
-    "The Indian Express", "Hindustan Times", "The Hindu", "Economic Times"
+# ─────────────────────────────────────────────
+# TOPIC CATALOGUE (15 Topics)
+# ─────────────────────────────────────────────
+ALL_TOPICS = [
+    "AI",
+    "Agentic AI",
+    "Technology",
+    "Renewable Energy",
+    "Economy",
+    "Indian Stock Market",
+    "Fortune 500",
+    "Startups",
+    "Automobiles",
+    "Cryptocurrency",
+    "Politics",
+    "Geopolitics",
+    "Current Affairs",
+    "Sports",
+    "Business News"
 ]
-
-DEFAULT_KEYWORDS = [
-    "AI", "Indian stock market", "Fortune 500", "solar energy", 
-    "wind energy", "hydro energy", "tidal energy", "renewable energy",
-    "Latest Technology", "Agentic AI"
-]
-
-PUBLISHER_SOURCE_MAP = {
-    "The Indian Express": "indianexpress.com",
-    "Hindustan Times": "hindustantimes.com",
-    "The Hindu": "thehindu.com",
-    "Economic Times": "economictimes.indiatimes.com",
-}
 
 # Custom CSS
 st.markdown("""
@@ -47,21 +50,50 @@ st.markdown("""
     .article-table a { color: #1F1F1F; text-decoration: none; font-weight: 500; }
     .article-table a:hover { color: #2C5F4A; text-decoration: underline; }
     .topic-header { background-color: #F4F1E9; padding: 12px 16px; border-radius: 8px; margin: 25px 0 12px 0; font-size: 1.2rem; font-weight: 600; color: #1F1F1F; }
+    .custom-chip {
+        display: inline-block; background: #2C5F4A; color: white; padding: 4px 12px; 
+        border-radius: 20px; margin: 4px; font-size: 0.9rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# Sidebar
+# ─────────────────────────────────────────────
+# SIDEBAR - Checkboxes + Custom Topic
+# ─────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### ⚙️ Settings")
-    publishers_raw = st.text_area("Publishers (one per line)", "\n".join(DEFAULT_PUBLISHERS), height=140)
-    publishers = [p.strip() for p in publishers_raw.splitlines() if p.strip()]
-
-    keywords_raw = st.text_area("Topics / Keywords (one per line)", "\n".join(DEFAULT_KEYWORDS), height=260)
-    keywords = [k.strip() for k in keywords_raw.splitlines() if k.strip()]
-
+    st.markdown("### 🎯 Select Topics")
+    
+    # Checkboxes for predefined topics
+    selected_topics = []
+    for topic in ALL_TOPICS:
+        if st.checkbox(topic, value=False, key=f"chk_{topic}"):
+            selected_topics.append(topic)
+    
+    st.markdown("---")
+    
+    # Custom Topic Input
+    st.markdown("### ➕ Add Custom Topic")
+    custom_input = st.text_input("Enter custom topic", placeholder="e.g. EV Battery Technology")
+    if st.button("Add Custom Topic", use_container_width=True):
+        if custom_input.strip():
+            if custom_input.strip() not in selected_topics:
+                selected_topics.append(custom_input.strip())
+                st.success(f"Added: {custom_input.strip()}")
+            else:
+                st.warning("Topic already added")
+    
+    # Show selected custom topics as removable chips (simple display)
+    if selected_topics:
+        st.markdown("**Selected Topics:**")
+        for t in selected_topics:
+            st.markdown(f'<span class="custom-chip">{t}</span>', unsafe_allow_html=True)
+    
+    st.markdown("---")
     max_articles = st.slider("Max articles per topic", 3, 12, 6)
 
+# ─────────────────────────────────────────────
 # Helper Functions
+# ─────────────────────────────────────────────
 def build_rss_url(keyword: str, source_domain: str) -> str:
     query = f"site:{source_domain} {keyword}"
     encoded = quote(query)
@@ -77,20 +109,19 @@ def parse_published_time(entry):
 
 def is_recent(pub_date, days=2):
     if not pub_date:
-        return False
+        return True  # Keep if date parsing fails
     cutoff = datetime.now() - timedelta(days=days)
     return pub_date >= cutoff
 
-def fetch_articles(publishers, keywords, max_articles):
+def fetch_articles(selected_topics, publishers, max_articles):
     articles = []
     seen = set()
-    today = date.today()
     
     for pub in publishers:
         domain = PUBLISHER_SOURCE_MAP.get(pub)
         if not domain: 
             continue
-        for kw in keywords:
+        for kw in selected_topics:
             url = build_rss_url(kw, domain)
             try:
                 feed = feedparser.parse(url)
@@ -102,7 +133,7 @@ def fetch_articles(publishers, keywords, max_articles):
                     
                     pub_date = parse_published_time(entry)
                     if not is_recent(pub_date):
-                        continue  # Skip old articles
+                        continue
                     
                     articles.append({
                         "Topic": kw,
@@ -122,6 +153,14 @@ def fetch_articles(publishers, keywords, max_articles):
         df = df.drop(columns=["Published_dt"])
     return df
 
+# Publisher Map
+PUBLISHER_SOURCE_MAP = {
+    "The Indian Express": "indianexpress.com",
+    "Hindustan Times": "hindustantimes.com",
+    "The Hindu": "thehindu.com",
+    "Economic Times": "economictimes.indiatimes.com",
+}
+
 # Main UI
 st.markdown('<div class="main-title">My News Button 📰</div>', unsafe_allow_html=True)
 st.markdown('<div class="greeting">Hi mate, welcome again</div>', unsafe_allow_html=True)
@@ -131,21 +170,21 @@ with col:
     fetch_clicked = st.button("Fetch Latest News", use_container_width=True)
 
 if fetch_clicked:
-    if not publishers or not keywords:
-        st.warning("⚠️ Please add at least one publisher and one topic.")
+    if not selected_topics:
+        st.warning("⚠️ Please select at least one topic using checkboxes or add a custom topic.")
     else:
-        progress_bar = st.progress(0, text="Fetching latest news (filtering recent articles)...")
+        progress_bar = st.progress(0, text="Fetching news for selected topics...")
         
-        df = fetch_articles(publishers, keywords, max_articles)
+        df = fetch_articles(selected_topics, DEFAULT_PUBLISHERS, max_articles)
         
-        progress_bar.progress(100, text="Done!")
+        progress_bar.progress(100, text="Completed!")
         time.sleep(0.4)
         progress_bar.empty()
 
         if df.empty:
-            st.warning("No recent articles found right now. Try again in a few hours or add broader topics.")
+            st.warning("No recent articles found for the selected topics. Try again later.")
         else:
-            st.success(f"✅ Found {len(df)} recent articles")
+            st.success(f"✅ Found {len(df)} recent articles across {len(selected_topics)} topic(s)")
 
             for topic, group in df.groupby("Topic"):
                 st.markdown(f'<div class="topic-header">📌 {topic} — {len(group)} articles</div>', unsafe_allow_html=True)
@@ -171,6 +210,6 @@ if fetch_clicked:
                 st.html(html_table)
 
 else:
-    st.info("Click the button above to fetch the latest news (only recent articles).")
+    st.info("Select topics from the sidebar and click the button to fetch news.")
 
-st.caption("Showing only recent articles (last 48 hours) • Grouped & sorted by Topic")
+st.caption("Recent articles only (last 48 hours) • Grouped by selected topics")
