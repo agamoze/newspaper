@@ -1,6 +1,6 @@
 """
 My News Button 📰
-On-demand news fetcher – Articles grouped by Topic in clean table format
+Articles displayed in clean tabular format, grouped by Topic
 """
 
 import time
@@ -10,18 +10,14 @@ import pandas as pd
 from datetime import datetime
 from urllib.parse import quote
 
-# ─────────────────────────────────────────────
-# PAGE CONFIG
-# ─────────────────────────────────────────────
+# Page Config
 st.set_page_config(
     page_title="My News Button",
     page_icon="📰",
     layout="wide",
 )
 
-# ─────────────────────────────────────────────
-# DEFAULT SETTINGS
-# ─────────────────────────────────────────────
+# Default Settings
 DEFAULT_PUBLISHERS = [
     "The Indian Express", "Hindustan Times", "The Hindu", "Economic Times"
 ]
@@ -39,9 +35,7 @@ PUBLISHER_SOURCE_MAP = {
     "Economic Times": "economictimes.indiatimes.com",
 }
 
-# ─────────────────────────────────────────────
-# CUSTOM CSS – Light & Professional
-# ─────────────────────────────────────────────
+# Custom CSS - Light Theme + Clean Table
 st.markdown("""
 <style>
     [data-testid="stAppViewContainer"], [data-testid="stMain"] {
@@ -61,24 +55,38 @@ st.markdown("""
         color: #2C2C2C;
         margin-bottom: 2rem;
     }
+    /* Button */
     div[data-testid="stButton"] > button {
         display: block;
         margin: 0 auto 2rem auto;
         background-color: #2C5F4A !important;
         color: white !important;
-        font-size: 1.05rem !important;
+        font-size: 1.1rem !important;
         font-weight: 600 !important;
-        padding: 0.7rem 2.8rem !important;
+        padding: 0.75rem 3rem !important;
         border-radius: 10px !important;
     }
+    /* Clean Table Styling */
     .article-table {
         width: 100%;
         border-collapse: collapse;
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
     }
-    .article-table th, .article-table td {
-        padding: 12px 10px;
-        border-bottom: 1px solid #E5E0D5;
+    .article-table th {
+        background-color: #F4F1E9;
+        padding: 14px 12px;
         text-align: left;
+        font-weight: 600;
+        color: #1F1F1F;
+        border-bottom: 2px solid #E5E0D5;
+    }
+    .article-table td {
+        padding: 14px 12px;
+        border-bottom: 1px solid #EDE9DF;
+        vertical-align: top;
     }
     .article-table a {
         color: #1F1F1F;
@@ -91,18 +99,17 @@ st.markdown("""
     }
     .topic-header {
         background-color: #F4F1E9;
-        padding: 10px 15px;
+        padding: 12px 16px;
         border-radius: 8px;
-        margin: 20px 0 10px 0;
+        margin: 25px 0 12px 0;
+        font-size: 1.15rem;
         font-weight: 600;
         color: #1F1F1F;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────
-# SIDEBAR
-# ─────────────────────────────────────────────
+# Sidebar
 with st.sidebar:
     st.markdown("### ⚙️ Settings")
     publishers_raw = st.text_area("Publishers (one per line)", "\n".join(DEFAULT_PUBLISHERS), height=140)
@@ -113,9 +120,7 @@ with st.sidebar:
 
     max_articles = st.slider("Max articles per topic", 3, 15, 8)
 
-# ─────────────────────────────────────────────
-# HELPER FUNCTIONS
-# ─────────────────────────────────────────────
+# Helper Functions
 def build_rss_url(keyword: str, source_domain: str) -> str:
     query = f"site:{source_domain} {keyword}"
     encoded = quote(query)
@@ -136,22 +141,28 @@ def fetch_articles(publishers, keywords, max_articles):
     
     for pub in publishers:
         domain = PUBLISHER_SOURCE_MAP.get(pub)
-        if not domain: 
+        if not domain:
             continue
         for kw in keywords:
             url = build_rss_url(kw, domain)
             try:
                 feed = feedparser.parse(url)
-                for entry in feed.entries:
+                for entry in feed.entries[:20]:   # Fetch more then limit
                     title = getattr(entry, "title", "").strip()
                     if not title or title.lower() in seen:
                         continue
                     seen.add(title.lower())
                     
+                    link = getattr(entry, "link", "#")
+                    # Clean Google redirect link if present
+                    if "news.google.com" in link and "/articles/" in link:
+                        # Try to extract real link if possible, else keep as is
+                        link = link
+                    
                     articles.append({
                         "Topic": kw,
                         "Title": title,
-                        "Link": getattr(entry, "link", "#"),
+                        "Link": link,
                         "Publisher": pub,
                         "Published": parse_published_time(entry)
                     })
@@ -164,9 +175,7 @@ def fetch_articles(publishers, keywords, max_articles):
         df = df.groupby("Topic").head(max_articles)
     return df
 
-# ─────────────────────────────────────────────
-# MAIN UI
-# ─────────────────────────────────────────────
+# Main UI
 st.markdown('<div class="main-title">My News Button 📰</div>', unsafe_allow_html=True)
 st.markdown('<div class="greeting">Hi mate, welcome again</div>', unsafe_allow_html=True)
 
@@ -176,50 +185,51 @@ with col:
 
 if fetch_clicked:
     if not publishers or not keywords:
-        st.warning("Please add at least one publisher and one topic in the sidebar.")
+        st.warning("⚠️ Please add at least one publisher and one topic in the sidebar.")
     else:
-        progress_bar = st.progress(0, text="Fetching news...")
+        progress_bar = st.progress(0, text="Fetching latest news...")
         
         df = fetch_articles(publishers, keywords, max_articles)
         
-        progress_bar.progress(100)
+        progress_bar.progress(100, text="Completed!")
         time.sleep(0.4)
         progress_bar.empty()
 
         if df.empty:
-            st.info("No articles found. Try changing keywords or publishers.")
+            st.info("No articles found. Try different keywords.")
         else:
             st.success(f"✅ Found {len(df)} articles")
 
-            # Group by Topic and display in clean HTML tables
+            # Display grouped by Topic with clean HTML tables
             for topic, group in df.groupby("Topic"):
-                st.markdown(f'<div class="topic-header">📌 {topic} ({len(group)} articles)</div>', 
+                st.markdown(f'<div class="topic-header">📌 {topic} — {len(group)} articles</div>', 
                            unsafe_allow_html=True)
                 
-                html_table = """
+                # Build clean HTML table
+                html = """
                 <table class="article-table">
                     <thead>
                         <tr>
-                            <th width="55%">Article Title</th>
-                            <th width="20%">Publisher</th>
-                            <th width="25%">Published</th>
+                            <th>Article Title</th>
+                            <th>Publisher</th>
+                            <th>Published</th>
                         </tr>
                     </thead>
                     <tbody>
                 """
                 for _, row in group.iterrows():
-                    html_table += f"""
+                    html += f"""
                         <tr>
-                            <td><a href="{row['Link']}" target="_blank">{row['Title']}</a></td>
+                            <td><a href="{row['Link']}" target="_blank" rel="noopener">{row['Title']}</a></td>
                             <td>{row['Publisher']}</td>
                             <td>{row['Published']}</td>
                         </tr>
                     """
-                html_table += "</tbody></table>"
+                html += "</tbody></table><br>"
                 
-                st.markdown(html_table, unsafe_allow_html=True)
-                
-else:
-    st.info("👆 Click the button above to fetch the latest news sorted by topic.")
+                st.markdown(html, unsafe_allow_html=True)
 
-st.caption("Articles grouped & sorted by Topic • Click any title to read the full article")
+else:
+    st.info("Click the button above to fetch news sorted by topic.")
+
+st.caption("Articles are grouped by Topic • Click on any title to open the full article")
