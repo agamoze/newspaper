@@ -201,34 +201,38 @@ if fetch_clicked:
         else:
             st.success(f"✅ Found {len(df)} articles (sorted by Topic)")
 
-            # Display grouped by Topic with clean tables
+                      # === FIXED TABLE DISPLAY ===
             for topic, group in df.groupby("Topic"):
-                st.markdown(f'<div class="topic-header">📌 {topic} — {len(group)} articles</div>', 
-                           unsafe_allow_html=True)
-                
-                html = """
+                st.markdown(f"""
+                <div class="topic-header">📌 {topic} — {len(group)} articles</div>
+                """, unsafe_allow_html=True)
+
+                # Build clean HTML table
+                html_table = """
                 <table class="article-table">
                     <thead>
                         <tr>
-                            <th width="55%">Article Title</th>
-                            <th width="20%">Publisher</th>
-                            <th width="25%">Published</th>
+                            <th>Article Title</th>
+                            <th>Publisher</th>
+                            <th>Published</th>
                         </tr>
                     </thead>
                     <tbody>
                 """
+
                 for _, row in group.iterrows():
-                    html += f"""
+                    html_table += f"""
                         <tr>
                             <td><a href="{row['Link']}" target="_blank" rel="noopener noreferrer">{row['Title']}</a></td>
                             <td>{row['Publisher']}</td>
                             <td>{row['Published']}</td>
                         </tr>
                     """
-                html += "</tbody></table><br>"
-                
-                st.markdown(html, unsafe_allow_html=True)
 
+                html_table += "</tbody></table><br>"
+
+                # Use st.html() instead of st.markdown for better HTML rendering in newer Streamlit
+                st.html(html_table)
 else:
     st.info("Click the button above to fetch and view articles sorted by topic.")
 
