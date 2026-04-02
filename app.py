@@ -1,13 +1,13 @@
 """
 My News Button 📰
-Shows ONLY today's articles - grouped & sorted by Topic
+Shows only recent articles (today + last 48 hours) - grouped by Topic
 """
 
 import time
 import streamlit as st
 import feedparser
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime, timedelta, date
 from urllib.parse import quote
 
 # Page Config
@@ -34,9 +34,7 @@ PUBLISHER_SOURCE_MAP = {
 # Custom CSS
 st.markdown("""
 <style>
-    [data-testid="stAppViewContainer"], [data-testid="stMain"] {
-        background-color: #F9F7F0 !important;
-    }
+    [data-testid="stAppViewContainer"], [data-testid="stMain"] { background-color: #F9F7F0 !important; }
     .main-title { text-align: center; font-family: 'Georgia', serif; font-size: 2.8rem; font-weight: 700; color: #1F1F1F; margin-bottom: 0.5rem; }
     .greeting { text-align: center; font-size: 1.25rem; color: #2C2C2C; margin-bottom: 2rem; }
     div[data-testid="stButton"] > button {
@@ -61,35 +59,37 @@ with st.sidebar:
     keywords_raw = st.text_area("Topics / Keywords (one per line)", "\n".join(DEFAULT_KEYWORDS), height=260)
     keywords = [k.strip() for k in keywords_raw.splitlines() if k.strip()]
 
-    max_articles = st.slider("Max articles per topic", 3, 12, 8)
+    max_articles = st.slider("Max articles per topic", 3, 12, 6)
 
 # Helper Functions
-def get_today_str():
-    return date.today().strftime("%Y-%m-%d")
-
 def build_rss_url(keyword: str, source_domain: str) -> str:
-    today = get_today_str()
-    # Filter: only today's articles using "after:" operator
-    query = f"site:{source_domain} {keyword} after:{today}"
+    query = f"site:{source_domain} {keyword}"
     encoded = quote(query)
     return f"https://news.google.com/rss/search?q={encoded}&hl=en-IN&gl=IN&ceid=IN:en"
 
-def parse_published_time(entry) -> str:
+def parse_published_time(entry):
     if hasattr(entry, "published_parsed") and entry.published_parsed:
         try:
-            dt = datetime(*entry.published_parsed[:6])
-            return dt.strftime("%d %b %Y, %I:%M %p")
+            return datetime(*entry.published_parsed[:6])
         except:
             pass
-    return "—"
+    return None
+
+def is_recent(pub_date, days=2):
+    if not pub_date:
+        return False
+    cutoff = datetime.now() - timedelta(days=days)
+    return pub_date >= cutoff
 
 def fetch_articles(publishers, keywords, max_articles):
     articles = []
     seen = set()
+    today = date.today()
     
     for pub in publishers:
         domain = PUBLISHER_SOURCE_MAP.get(pub)
-        if not domain: continue
+        if not domain: 
+            continue
         for kw in keywords:
             url = build_rss_url(kw, domain)
             try:
@@ -100,20 +100,26 @@ def fetch_articles(publishers, keywords, max_articles):
                         continue
                     seen.add(title.lower())
                     
+                    pub_date = parse_published_time(entry)
+                    if not is_recent(pub_date):
+                        continue  # Skip old articles
+                    
                     articles.append({
                         "Topic": kw,
                         "Title": title,
                         "Link": getattr(entry, "link", "#"),
                         "Publisher": pub,
-                        "Published": parse_published_time(entry)
+                        "Published": pub_date.strftime("%d %b %Y, %I:%M %p") if pub_date else "—",
+                        "Published_dt": pub_date
                     })
             except:
                 continue
     
     df = pd.DataFrame(articles)
     if not df.empty:
-        df = df.sort_values(by=["Topic", "Published"], ascending=[True, False])
+        df = df.sort_values(by=["Topic", "Published_dt"], ascending=[True, False])
         df = df.groupby("Topic").head(max_articles)
+        df = df.drop(columns=["Published_dt"])
     return df
 
 # Main UI
@@ -122,13 +128,13 @@ st.markdown('<div class="greeting">Hi mate, welcome again</div>', unsafe_allow_h
 
 _, col, _ = st.columns([1, 2, 1])
 with col:
-    fetch_clicked = st.button("Fetch Today's News", use_container_width=True)
+    fetch_clicked = st.button("Fetch Latest News", use_container_width=True)
 
 if fetch_clicked:
     if not publishers or not keywords:
-        st.warning("⚠️ Please add publishers and topics in the sidebar.")
+        st.warning("⚠️ Please add at least one publisher and one topic.")
     else:
-        progress_bar = st.progress(0, text="Fetching today's news...")
+        progress_bar = st.progress(0, text="Fetching latest news (filtering recent articles)...")
         
         df = fetch_articles(publishers, keywords, max_articles)
         
@@ -137,9 +143,9 @@ if fetch_clicked:
         progress_bar.empty()
 
         if df.empty:
-            st.warning("No articles found for today. Try again later or broaden your topics.")
+            st.warning("No recent articles found right now. Try again in a few hours or add broader topics.")
         else:
-            st.success(f"✅ Found {len(df)} articles from **today**")
+            st.success(f"✅ Found {len(df)} recent articles")
 
             for topic, group in df.groupby("Topic"):
                 st.markdown(f'<div class="topic-header">📌 {topic} — {len(group)} articles</div>', unsafe_allow_html=True)
@@ -165,6 +171,6 @@ if fetch_clicked:
                 st.html(html_table)
 
 else:
-    st.info("Click the button above to fetch **today's** news sorted by topic.")
+    st.info("Click the button above to fetch the latest news (only recent articles).")
 
-st.caption("Showing only articles published today • Grouped by Topic")
+st.caption("Showing only recent articles (last 48 hours) • Grouped & sorted by Topic")
