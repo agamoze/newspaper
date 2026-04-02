@@ -1,6 +1,6 @@
 """
 My News Button 📰
-Fixed Custom Topic Support + Checkboxes
+Fixed Custom Topic UI + Better Layout
 """
 
 import time
@@ -10,9 +10,10 @@ import pandas as pd
 from datetime import datetime, timedelta
 from urllib.parse import quote
 
-# ====================== CONFIG ======================
-st.set_page_config(page_title="AI meets the Morning Paper", page_icon="📰", layout="wide")
+# ====================== PAGE CONFIG ======================
+st.set_page_config(page_title="My News Button", page_icon="📰", layout="wide")
 
+# ====================== DEFAULT SETTINGS ======================
 DEFAULT_PUBLISHERS = [
     "The Indian Express", "Hindustan Times", "The Hindu", "Economic Times"
 ]
@@ -24,6 +25,10 @@ ALL_TOPICS = [
     "Sports", "Business News"
 ]
 
+# ====================== SESSION STATE ======================
+if 'custom_topics' not in st.session_state:
+    st.session_state.custom_topics = []
+
 # ====================== CUSTOM CSS ======================
 st.markdown("""
 <style>
@@ -31,8 +36,8 @@ st.markdown("""
     .main-title { text-align: center; font-family: 'Georgia', serif; font-size: 2.8rem; font-weight: 700; color: #1F1F1F; margin-bottom: 0.5rem; }
     .greeting { text-align: center; font-size: 1.25rem; color: #2C2C2C; margin-bottom: 2rem; }
     div[data-testid="stButton"] > button {
-        display: block; margin: 0 auto 2rem auto; background-color: #2C5F4A !important; color: white !important;
-        font-size: 1.1rem !important; font-weight: 600 !important; padding: 0.75rem 3rem !important; border-radius: 10px !important;
+        background-color: #2C5F4A !important; color: white !important;
+        font-size: 1.05rem !important; font-weight: 600 !important; padding: 0.7rem 2.5rem !important; border-radius: 10px !important;
     }
     .article-table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
     .article-table th { background-color: #F4F1E9; padding: 14px 12px; text-align: left; font-weight: 600; }
@@ -40,19 +45,23 @@ st.markdown("""
     .article-table a { color: #1F1F1F; text-decoration: none; font-weight: 500; }
     .article-table a:hover { color: #2C5F4A; text-decoration: underline; }
     .topic-header { background-color: #F4F1E9; padding: 12px 16px; border-radius: 8px; margin: 25px 0 12px 0; font-size: 1.2rem; font-weight: 600; color: #1F1F1F; }
-    .custom-chip { display: inline-block; background: #2C5F4A; color: white; padding: 4px 12px; border-radius: 20px; margin: 4px; font-size: 0.9rem; }
+    .custom-chip { 
+        display: inline-block; 
+        background: #2C5F4A; 
+        color: white; 
+        padding: 6px 14px; 
+        border-radius: 20px; 
+        margin: 5px 5px 5px 0; 
+        font-size: 0.92rem;
+    }
 </style>
 """, unsafe_allow_html=True)
-
-# ====================== SESSION STATE FOR CUSTOM TOPICS ======================
-if 'custom_topics' not in st.session_state:
-    st.session_state.custom_topics = []
 
 # ====================== SIDEBAR ======================
 with st.sidebar:
     st.markdown("### 🎯 Select Topics")
     
-    # Predefined topics with checkboxes
+    # Predefined topics
     selected_predefined = []
     for topic in ALL_TOPICS:
         if st.checkbox(topic, value=False, key=f"chk_{topic}"):
@@ -60,16 +69,11 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Custom Topic Section - Fixed Layout
+    # Custom Topic Section - Better Layout
     st.markdown("### ➕ Add Custom Topic")
-    custom_input = st.text_input(
-        "Enter new topic", 
-        placeholder="e.g. EV Battery Technology", 
-        key="custom_input_key"
-    )
+    custom_input = st.text_input("Enter new topic", placeholder="e.g. EV Battery Technology", key="custom_input_key")
     
-    # Buttons side by side
-    col_add, col_clear = st.columns([3, 1])
+    col_add, col_clear = st.columns([2, 1])
     with col_add:
         if st.button("Add Topic", use_container_width=True):
             if custom_input.strip():
@@ -85,7 +89,7 @@ with st.sidebar:
             st.session_state.custom_topics = []
             st.rerun()
 
-    # Show all selected topics (predefined + custom)
+    # Show all selected topics
     all_selected_topics = selected_predefined + st.session_state.custom_topics
     
     if all_selected_topics:
@@ -122,21 +126,18 @@ def fetch_articles(selected_topics, publishers, max_articles):
     
     for pub in publishers:
         domain = PUBLISHER_SOURCE_MAP.get(pub)
-        if not domain:
-            continue
+        if not domain: continue
         for kw in selected_topics:
             url = build_rss_url(kw, domain)
             try:
                 feed = feedparser.parse(url)
                 for entry in feed.entries:
                     title = getattr(entry, "title", "").strip()
-                    if not title or title.lower() in seen:
-                        continue
+                    if not title or title.lower() in seen: continue
                     seen.add(title.lower())
                     
                     pub_date = parse_published_time(entry)
-                    if not is_recent(pub_date):
-                        continue
+                    if not is_recent(pub_date): continue
                     
                     articles.append({
                         "Topic": kw,
@@ -172,7 +173,7 @@ with col:
     fetch_clicked = st.button("Fetch Latest News", use_container_width=True)
 
 if fetch_clicked:
-    all_selected_topics = selected_topics + st.session_state.custom_topics
+    all_selected_topics = selected_predefined + st.session_state.custom_topics
     
     if not all_selected_topics:
         st.warning("⚠️ Please select at least one topic or add a custom topic.")
@@ -186,7 +187,7 @@ if fetch_clicked:
         progress_bar.empty()
 
         if df.empty:
-            st.warning("No recent articles found. Try different topics or try again later.")
+            st.warning("No recent articles found. Try different topics.")
         else:
             st.success(f"✅ Found {len(df)} recent articles")
 
@@ -214,6 +215,6 @@ if fetch_clicked:
                 st.html(html_table)
 
 else:
-    st.info("Select topics using checkboxes or add custom topics, then click the button.")
+    st.info("Select topics or add custom ones, then click the button.")
 
 st.caption("Recent articles (last 48 hours) • Grouped by selected topics")
