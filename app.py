@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from urllib.parse import quote
 
 # ====================== CONFIG ======================
-st.set_page_config(page_title="My News Button", page_icon="📰", layout="wide")
+st.set_page_config(page_title="AI meets the Morning Paper", page_icon="📰", layout="wide")
 
 DEFAULT_PUBLISHERS = [
     "The Indian Express", "Hindustan Times", "The Hindu", "Economic Times"
@@ -53,39 +53,44 @@ with st.sidebar:
     st.markdown("### 🎯 Select Topics")
     
     # Predefined topics with checkboxes
-    selected_topics = []
+    selected_predefined = []
     for topic in ALL_TOPICS:
         if st.checkbox(topic, value=False, key=f"chk_{topic}"):
-            selected_topics.append(topic)
+            selected_predefined.append(topic)
     
     st.markdown("---")
     
-    # Custom Topic Section
+    # Custom Topic Section - Fixed Layout
     st.markdown("### ➕ Add Custom Topic")
-    custom_input = st.text_input("Enter new topic", placeholder="e.g. EV Battery Technology", key="custom_input")
+    custom_input = st.text_input(
+        "Enter new topic", 
+        placeholder="e.g. EV Battery Technology", 
+        key="custom_input_key"
+    )
     
-    col1, col2 = st.columns([3, 1])
-    with col1:
+    # Buttons side by side
+    col_add, col_clear = st.columns([3, 1])
+    with col_add:
         if st.button("Add Topic", use_container_width=True):
             if custom_input.strip():
                 new_topic = custom_input.strip()
-                if new_topic not in st.session_state.custom_topics and new_topic not in selected_topics:
+                if new_topic not in st.session_state.custom_topics and new_topic not in selected_predefined:
                     st.session_state.custom_topics.append(new_topic)
                     st.success(f"Added: {new_topic}")
                 else:
-                    st.warning("Topic already exists")
+                    st.warning("This topic already exists")
     
-    with col2:
+    with col_clear:
         if st.button("Clear Custom", use_container_width=True):
             st.session_state.custom_topics = []
             st.rerun()
 
     # Show all selected topics (predefined + custom)
-    all_selected = selected_topics + st.session_state.custom_topics
+    all_selected_topics = selected_predefined + st.session_state.custom_topics
     
-    if all_selected:
+    if all_selected_topics:
         st.markdown("**Selected Topics:**")
-        for t in all_selected:
+        for t in all_selected_topics:
             st.markdown(f'<span class="custom-chip">{t}</span>', unsafe_allow_html=True)
     
     st.markdown("---")
