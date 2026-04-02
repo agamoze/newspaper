@@ -1,11 +1,12 @@
 """
 My News Button 📰
-A simple on-demand news fetcher for your favorite Indian publishers.
+On-demand news fetcher from selected Indian publishers.
 """
 
 import time
 import streamlit as st
 import feedparser
+import pandas as pd
 from datetime import datetime
 from urllib.parse import quote
 
@@ -13,8 +14,7 @@ from urllib.parse import quote
 # PAGE CONFIG
 # ─────────────────────────────────────────────
 st.set_page_config(
-    page_title="My News Button",
-    page_icon="📰",
+    page_title="Ai Meets the Morning Paper",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -42,9 +42,8 @@ DEFAULT_KEYWORDS = [
     "Agentic AI",
 ]
 
-DEFAULT_ARTICLES_PER_PUBLISHER = 10
+DEFAULT_ARTICLES_PER_TOPIC = 8   # Changed to per-topic for better grouping
 
-# Publisher name → domain for Google News "site:" filter
 PUBLISHER_SOURCE_MAP = {
     "The Indian Express": "indianexpress.com",
     "Hindustan Times": "hindustantimes.com",
@@ -53,95 +52,61 @@ PUBLISHER_SOURCE_MAP = {
 }
 
 # ─────────────────────────────────────────────
-# CUSTOM CSS – Light Theme with your exact colors
+# CUSTOM CSS – Light, Professional & Eye-Friendly
 # ─────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* Main background color */
     [data-testid="stAppViewContainer"],
     [data-testid="stMain"] {
-        background-color: #F9F6C4 !important;
+        background-color: #F9F7F0 !important;
     }
     
-    /* Title and text colors */
-    h1, h2, h3, p, label {
-        color: #000000 !important;
-    }
-    
-    /* Professional font for title */
     .main-title {
         text-align: center;
         font-family: 'Georgia', 'Times New Roman', serif;
         font-size: 2.8rem;
         font-weight: 700;
-        color: #000000;
+        color: #1F1F1F;
         margin-bottom: 0.5rem;
     }
     
-    /* Greeting */
     .greeting {
         text-align: center;
         font-size: 1.25rem;
-        color: #000000;
+        color: #2C2C2C;
         margin-bottom: 2rem;
         font-weight: 400;
     }
     
-    /* Fetch Button Styling */
+    /* Smaller rectangular button with rounded corners */
     div[data-testid="stButton"] > button {
         display: block;
         margin: 0 auto 2rem auto;
-        background-color: #2F6B3F !important;
+        background-color: #2C5F4A !important;
         color: white !important;
-        font-size: 1.1rem !important;
+        font-size: 1.05rem !important;
         font-weight: 600 !important;
-        padding: 0.75rem 2.5rem !important;
-        border-radius: 12px !important;
+        padding: 0.7rem 2.8rem !important;
+        border-radius: 10px !important;
         border: none !important;
-        box-shadow: 0 4px 12px rgba(47, 107, 63, 0.3);
-        transition: all 0.2s ease;
+        box-shadow: 0 4px 12px rgba(44, 95, 74, 0.3);
     }
     
     div[data-testid="stButton"] > button:hover {
-        background-color: #265832 !important;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(47, 107, 63, 0.4);
+        background-color: #234B3A !important;
+        transform: translateY(-1px);
     }
     
-    /* Article Cards */
-    .article-card {
-        background-color: white;
-        border: 1px solid #e0e0e0;
-        border-radius: 12px;
-        padding: 1.2rem;
-        margin-bottom: 1rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-    
-    .card-title a {
-        color: #000000 !important;
-        text-decoration: none;
-        font-weight: 600;
-    }
-    
-    .card-title a:hover {
-        color: #2F6B3F !important;
-    }
-    
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #f5f0b8 !important;
-    }
-    
-    /* Progress bar text */
-    .stProgress > label {
-        color: #000000 !important;
+    /* Table styling */
+    .dataframe {
+        border-radius: 10px;
+        overflow: hidden;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
-# SIDEBAR SETTINGS
+# SIDEBAR
 # ─────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### ⚙️ Settings")
@@ -157,7 +122,7 @@ with st.sidebar:
     st.markdown("---")
     
     keywords_raw = st.text_area(
-        "Keywords / Topics (one per line)",
+        "Topics / Keywords (one per line)",
         value="\n".join(DEFAULT_KEYWORDS),
         height=260,
     )
@@ -165,16 +130,16 @@ with st.sidebar:
     
     st.markdown("---")
     
-    articles_per_pub = st.slider(
-        "Max articles per publisher",
+    articles_per_topic = st.slider(
+        "Max articles per topic",
         min_value=3,
-        max_value=20,
-        value=DEFAULT_ARTICLES_PER_PUBLISHER,
+        max_value=15,
+        value=DEFAULT_ARTICLES_PER_TOPIC,
         step=1,
     )
 
 # ─────────────────────────────────────────────
-# HELPER FUNCTIONS (same as before - no change needed)
+# HELPER FUNCTIONS
 # ─────────────────────────────────────────────
 def build_rss_url(keyword: str, source_domain: str) -> str:
     query = f"site:{source_domain} {keyword}"
@@ -188,101 +153,95 @@ def parse_published_time(entry) -> str:
             return dt.strftime("%d %b %Y, %I:%M %p")
         except:
             pass
-    return getattr(entry, "published", "Time unavailable")
+    return "—"
 
-def fetch_articles_for_publisher(publisher_name: str, kw_list: list, max_articles: int) -> list:
-    source_domain = PUBLISHER_SOURCE_MAP.get(publisher_name)
-    if not source_domain:
-        return []
-    
+def fetch_all_articles(publishers: list, keywords: list, max_per_topic: int):
+    all_articles = []
     seen_titles = set()
-    articles = []
     
-    for keyword in kw_list:
-        url = build_rss_url(keyword, source_domain)
-        try:
-            feed = feedparser.parse(url)
-            for entry in feed.entries:
-                title = getattr(entry, "title", "").strip()
-                if not title or title.lower() in seen_titles:
-                    continue
-                seen_titles.add(title.lower())
-                
-                articles.append({
-                    "title": title,
-                    "link": getattr(entry, "link", "#"),
-                    "publisher": publisher_name,
-                    "time": parse_published_time(entry),
-                })
-        except:
+    for pub in publishers:
+        source_domain = PUBLISHER_SOURCE_MAP.get(pub)
+        if not source_domain:
             continue
+            
+        for keyword in keywords:
+            url = build_rss_url(keyword, source_domain)
+            try:
+                feed = feedparser.parse(url)
+                for entry in feed.entries[:max_per_topic * 2]:  # Fetch extra then dedup
+                    title = getattr(entry, "title", "").strip()
+                    if not title or title.lower() in seen_titles:
+                        continue
+                    
+                    seen_titles.add(title.lower())
+                    
+                    all_articles.append({
+                        "Topic": keyword,
+                        "Title": title,
+                        "Link": getattr(entry, "link", "#"),
+                        "Publisher": pub,
+                        "Published": parse_published_time(entry),
+                    })
+            except:
+                continue
     
-    # Sort by time (newest first) - simple fallback
-    articles = articles[:max_articles]
-    return articles
+    # Convert to DataFrame and sort: first by Topic, then newest first
+    df = pd.DataFrame(all_articles)
+    if not df.empty:
+        df = df.sort_values(by=["Topic", "Published"], ascending=[True, False])
+        # Limit per topic
+        df = df.groupby("Topic").head(max_per_topic)
+    
+    return df
 
 # ─────────────────────────────────────────────
 # MAIN UI
 # ─────────────────────────────────────────────
-# Title + Greeting
 st.markdown('<div class="main-title">My News Button 📰</div>', unsafe_allow_html=True)
 st.markdown('<div class="greeting">Hi mate, welcome again</div>', unsafe_allow_html=True)
 
-# Fetch Button (smaller, rounded, green)
 _, col_btn, _ = st.columns([1, 2, 1])
 with col_btn:
     fetch_clicked = st.button("Fetch Latest News", use_container_width=True)
 
 # ─────────────────────────────────────────────
-# FETCH LOGIC
+# FETCH & DISPLAY
 # ─────────────────────────────────────────────
 if fetch_clicked:
-    if not publishers:
-        st.warning("Please add at least one publisher in the sidebar.")
-    elif not keywords:
-        st.warning("Please add at least one keyword in the sidebar.")
+    if not publishers or not keywords:
+        st.warning("Please add at least one publisher and one keyword in the sidebar.")
     else:
-        all_results = {}
-        total_count = 0
+        progress_bar = st.progress(0, text="Fetching latest news from your publishers...")
         
-        # Progress bar while fetching
-        progress_text = "Fetching latest news from your publishers..."
-        progress_bar = st.progress(0, text=progress_text)
+        df = fetch_all_articles(publishers, keywords, articles_per_topic)
         
-        for i, pub in enumerate(publishers):
-            # Update progress
-            progress = int((i + 1) / len(publishers) * 100)
-            progress_bar.progress(progress, text=f"{progress_text} ({pub})")
-            
-            articles = fetch_articles_for_publisher(pub, keywords, articles_per_pub)
-            all_results[pub] = articles
-            total_count += len(articles)
-            
-            time.sleep(0.3)  # Small delay for realistic progress feel
+        progress_bar.progress(100, text="Done!")
+        time.sleep(0.3)
+        progress_bar.empty()
         
-        progress_bar.empty()  # Remove progress bar after completion
-        
-        # Results
-        if total_count > 0:
-            st.success(f"✅ Found {total_count} articles across {len(publishers)} publisher(s)")
-            
-            for pub, articles in all_results.items():
-                if articles:
-                    st.markdown(f"### {pub} ({len(articles)} articles)")
-                    for art in articles:
-                        st.markdown(f"""
-                        <div class="article-card">
-                            <div class="card-title">
-                                <a href="{art['link']}" target="_blank">{art['title']}</a>
-                            </div>
-                            <p style="color:#555; margin-top:8px;">
-                                🗞️ {art['publisher']} • 🕒 {art['time']}
-                            </p>
-                        </div>
-                        """, unsafe_allow_html=True)
+        if df.empty:
+            st.info("No matching articles found right now. Try adjusting your topics or publishers.")
         else:
-            st.info("No matching articles found right now. Try changing keywords or try again later.")
+            total = len(df)
+            st.success(f"✅ Found {total} relevant articles")
+            
+            # Make Title column clickable using LinkColumn
+            st.dataframe(
+                df,
+                column_config={
+                    "Title": st.column_config.LinkColumn(
+                        "Article Title",
+                        display_text=None,   # Shows full title as link text
+                        help="Click to read the full article"
+                    ),
+                    "Link": None,   # Hide the raw URL column
+                },
+                use_container_width=True,
+                hide_index=True,
+            )
+            
+            st.caption("Articles are grouped and sorted by Topic • Newest first within each topic")
 else:
-    st.info("Click the button above to fetch the latest news.")
+    st.info("Click the button above to fetch the latest news tailored to your topics.")
 
 st.caption("Built with Streamlit • Powered by Google News RSS")
