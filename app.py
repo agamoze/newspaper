@@ -1,6 +1,6 @@
 """
 My News Button 📰
-On-demand news fetcher from selected Indian publishers.
+On-demand news fetcher – Articles grouped by Topic in clean table format
 """
 
 import time
@@ -14,35 +14,23 @@ from urllib.parse import quote
 # PAGE CONFIG
 # ─────────────────────────────────────────────
 st.set_page_config(
-    page_title="Ai Meets the Morning Paper",
+    page_title="My News Button",
+    page_icon="📰",
     layout="wide",
-    initial_sidebar_state="expanded",
 )
 
 # ─────────────────────────────────────────────
 # DEFAULT SETTINGS
 # ─────────────────────────────────────────────
 DEFAULT_PUBLISHERS = [
-    "The Indian Express",
-    "Hindustan Times",
-    "The Hindu",
-    "Economic Times",
+    "The Indian Express", "Hindustan Times", "The Hindu", "Economic Times"
 ]
 
 DEFAULT_KEYWORDS = [
-    "AI",
-    "Indian stock market",
-    "Fortune 500",
-    "solar energy",
-    "wind energy",
-    "hydro energy",
-    "tidal energy",
-    "renewable energy",
-    "Latest Technology",
-    "Agentic AI",
+    "AI", "Indian stock market", "Fortune 500", "solar energy", 
+    "wind energy", "hydro energy", "tidal energy", "renewable energy",
+    "Latest Technology", "Agentic AI"
 ]
-
-DEFAULT_ARTICLES_PER_TOPIC = 8   # Changed to per-topic for better grouping
 
 PUBLISHER_SOURCE_MAP = {
     "The Indian Express": "indianexpress.com",
@@ -52,33 +40,27 @@ PUBLISHER_SOURCE_MAP = {
 }
 
 # ─────────────────────────────────────────────
-# CUSTOM CSS – Light, Professional & Eye-Friendly
+# CUSTOM CSS – Light & Professional
 # ─────────────────────────────────────────────
 st.markdown("""
 <style>
-    [data-testid="stAppViewContainer"],
-    [data-testid="stMain"] {
+    [data-testid="stAppViewContainer"], [data-testid="stMain"] {
         background-color: #F9F7F0 !important;
     }
-    
     .main-title {
         text-align: center;
-        font-family: 'Georgia', 'Times New Roman', serif;
+        font-family: 'Georgia', serif;
         font-size: 2.8rem;
         font-weight: 700;
         color: #1F1F1F;
         margin-bottom: 0.5rem;
     }
-    
     .greeting {
         text-align: center;
         font-size: 1.25rem;
         color: #2C2C2C;
         margin-bottom: 2rem;
-        font-weight: 400;
     }
-    
-    /* Smaller rectangular button with rounded corners */
     div[data-testid="stButton"] > button {
         display: block;
         margin: 0 auto 2rem auto;
@@ -88,19 +70,32 @@ st.markdown("""
         font-weight: 600 !important;
         padding: 0.7rem 2.8rem !important;
         border-radius: 10px !important;
-        border: none !important;
-        box-shadow: 0 4px 12px rgba(44, 95, 74, 0.3);
     }
-    
-    div[data-testid="stButton"] > button:hover {
-        background-color: #234B3A !important;
-        transform: translateY(-1px);
+    .article-table {
+        width: 100%;
+        border-collapse: collapse;
     }
-    
-    /* Table styling */
-    .dataframe {
-        border-radius: 10px;
-        overflow: hidden;
+    .article-table th, .article-table td {
+        padding: 12px 10px;
+        border-bottom: 1px solid #E5E0D5;
+        text-align: left;
+    }
+    .article-table a {
+        color: #1F1F1F;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    .article-table a:hover {
+        color: #2C5F4A;
+        text-decoration: underline;
+    }
+    .topic-header {
+        background-color: #F4F1E9;
+        padding: 10px 15px;
+        border-radius: 8px;
+        margin: 20px 0 10px 0;
+        font-weight: 600;
+        color: #1F1F1F;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -110,33 +105,13 @@ st.markdown("""
 # ─────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### ⚙️ Settings")
-    st.markdown("---")
-    
-    publishers_raw = st.text_area(
-        "Publishers (one per line)",
-        value="\n".join(DEFAULT_PUBLISHERS),
-        height=140,
-    )
+    publishers_raw = st.text_area("Publishers (one per line)", "\n".join(DEFAULT_PUBLISHERS), height=140)
     publishers = [p.strip() for p in publishers_raw.splitlines() if p.strip()]
-    
-    st.markdown("---")
-    
-    keywords_raw = st.text_area(
-        "Topics / Keywords (one per line)",
-        value="\n".join(DEFAULT_KEYWORDS),
-        height=260,
-    )
+
+    keywords_raw = st.text_area("Topics / Keywords (one per line)", "\n".join(DEFAULT_KEYWORDS), height=260)
     keywords = [k.strip() for k in keywords_raw.splitlines() if k.strip()]
-    
-    st.markdown("---")
-    
-    articles_per_topic = st.slider(
-        "Max articles per topic",
-        min_value=3,
-        max_value=15,
-        value=DEFAULT_ARTICLES_PER_TOPIC,
-        step=1,
-    )
+
+    max_articles = st.slider("Max articles per topic", 3, 15, 8)
 
 # ─────────────────────────────────────────────
 # HELPER FUNCTIONS
@@ -155,43 +130,38 @@ def parse_published_time(entry) -> str:
             pass
     return "—"
 
-def fetch_all_articles(publishers: list, keywords: list, max_per_topic: int):
-    all_articles = []
-    seen_titles = set()
+def fetch_articles(publishers, keywords, max_articles):
+    articles = []
+    seen = set()
     
     for pub in publishers:
-        source_domain = PUBLISHER_SOURCE_MAP.get(pub)
-        if not source_domain:
+        domain = PUBLISHER_SOURCE_MAP.get(pub)
+        if not domain: 
             continue
-            
-        for keyword in keywords:
-            url = build_rss_url(keyword, source_domain)
+        for kw in keywords:
+            url = build_rss_url(kw, domain)
             try:
                 feed = feedparser.parse(url)
-                for entry in feed.entries[:max_per_topic * 2]:  # Fetch extra then dedup
+                for entry in feed.entries:
                     title = getattr(entry, "title", "").strip()
-                    if not title or title.lower() in seen_titles:
+                    if not title or title.lower() in seen:
                         continue
+                    seen.add(title.lower())
                     
-                    seen_titles.add(title.lower())
-                    
-                    all_articles.append({
-                        "Topic": keyword,
+                    articles.append({
+                        "Topic": kw,
                         "Title": title,
                         "Link": getattr(entry, "link", "#"),
                         "Publisher": pub,
-                        "Published": parse_published_time(entry),
+                        "Published": parse_published_time(entry)
                     })
             except:
                 continue
     
-    # Convert to DataFrame and sort: first by Topic, then newest first
-    df = pd.DataFrame(all_articles)
+    df = pd.DataFrame(articles)
     if not df.empty:
         df = df.sort_values(by=["Topic", "Published"], ascending=[True, False])
-        # Limit per topic
-        df = df.groupby("Topic").head(max_per_topic)
-    
+        df = df.groupby("Topic").head(max_articles)
     return df
 
 # ─────────────────────────────────────────────
@@ -200,48 +170,56 @@ def fetch_all_articles(publishers: list, keywords: list, max_per_topic: int):
 st.markdown('<div class="main-title">My News Button 📰</div>', unsafe_allow_html=True)
 st.markdown('<div class="greeting">Hi mate, welcome again</div>', unsafe_allow_html=True)
 
-_, col_btn, _ = st.columns([1, 2, 1])
-with col_btn:
+_, col, _ = st.columns([1, 2, 1])
+with col:
     fetch_clicked = st.button("Fetch Latest News", use_container_width=True)
 
-# ─────────────────────────────────────────────
-# FETCH & DISPLAY
-# ─────────────────────────────────────────────
 if fetch_clicked:
     if not publishers or not keywords:
-        st.warning("Please add at least one publisher and one keyword in the sidebar.")
+        st.warning("Please add at least one publisher and one topic in the sidebar.")
     else:
-        progress_bar = st.progress(0, text="Fetching latest news from your publishers...")
+        progress_bar = st.progress(0, text="Fetching news...")
         
-        df = fetch_all_articles(publishers, keywords, articles_per_topic)
+        df = fetch_articles(publishers, keywords, max_articles)
         
-        progress_bar.progress(100, text="Done!")
-        time.sleep(0.3)
+        progress_bar.progress(100)
+        time.sleep(0.4)
         progress_bar.empty()
-        
-        if df.empty:
-            st.info("No matching articles found right now. Try adjusting your topics or publishers.")
-        else:
-            total = len(df)
-            st.success(f"✅ Found {total} relevant articles")
-            
-            # Make Title column clickable using LinkColumn
-            st.dataframe(
-                df,
-                column_config={
-                    "Title": st.column_config.LinkColumn(
-                        "Article Title",
-                        display_text=None,   # Shows full title as link text
-                        help="Click to read the full article"
-                    ),
-                    "Link": None,   # Hide the raw URL column
-                },
-                use_container_width=True,
-                hide_index=True,
-            )
-            
-            st.caption("Articles are grouped and sorted by Topic • Newest first within each topic")
-else:
-    st.info("Click the button above to fetch the latest news tailored to your topics.")
 
-st.caption("Built with Streamlit • Powered by Google News RSS")
+        if df.empty:
+            st.info("No articles found. Try changing keywords or publishers.")
+        else:
+            st.success(f"✅ Found {len(df)} articles")
+
+            # Group by Topic and display in clean HTML tables
+            for topic, group in df.groupby("Topic"):
+                st.markdown(f'<div class="topic-header">📌 {topic} ({len(group)} articles)</div>', 
+                           unsafe_allow_html=True)
+                
+                html_table = """
+                <table class="article-table">
+                    <thead>
+                        <tr>
+                            <th width="55%">Article Title</th>
+                            <th width="20%">Publisher</th>
+                            <th width="25%">Published</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                """
+                for _, row in group.iterrows():
+                    html_table += f"""
+                        <tr>
+                            <td><a href="{row['Link']}" target="_blank">{row['Title']}</a></td>
+                            <td>{row['Publisher']}</td>
+                            <td>{row['Published']}</td>
+                        </tr>
+                    """
+                html_table += "</tbody></table>"
+                
+                st.markdown(html_table, unsafe_allow_html=True)
+                
+else:
+    st.info("👆 Click the button above to fetch the latest news sorted by topic.")
+
+st.caption("Articles grouped & sorted by Topic • Click any title to read the full article")
