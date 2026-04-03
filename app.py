@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from urllib.parse import quote
 
 # ====================== PAGE CONFIG ======================
-st.set_page_config(page_title="My News Button", page_icon="📰", layout="wide")
+st.set_page_config(page_title="AI Meets the Morning Paper", page_icon="📰", layout="wide")
 
 # ====================== DEFAULT SETTINGS ======================
 DEFAULT_PUBLISHERS = [
