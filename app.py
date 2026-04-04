@@ -1,6 +1,6 @@
 """
 My News Button 📰
-Final Working Version - Onboarding + Fixed Sidebar + All Features
+Final Version - Keyword Must Appear in Title + All Previous Features
 """
 
 import time
@@ -58,7 +58,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ====================== HELPER FUNCTIONS (Defined FIRST) ======================
+# ====================== HELPER FUNCTIONS ======================
 def build_rss_url(keyword: str, source_domain: str) -> str:
     query = f"site:{source_domain} {keyword}"
     encoded = quote(query)
@@ -78,6 +78,12 @@ def is_recent(pub_date, days=2):
     cutoff = datetime.now() - timedelta(days=days)
     return pub_date >= cutoff
 
+def keyword_in_title(title: str, keyword: str) -> bool:
+    """Check if keyword appears in the article title (case insensitive)"""
+    if not title or not keyword:
+        return False
+    return keyword.lower() in title.lower()
+
 def fetch_articles(selected_topics, publishers, max_articles):
     articles = []
     seen = set()
@@ -92,12 +98,17 @@ def fetch_articles(selected_topics, publishers, max_articles):
                 feed = feedparser.parse(url)
                 for entry in feed.entries:
                     title = getattr(entry, "title", "").strip()
-                    if not title or title.lower() in seen: 
+                    if not title or title.lower() in seen:
                         continue
+                    
+                    # NEW FILTER: Only keep articles where keyword is in the title
+                    if not keyword_in_title(title, kw):
+                        continue
+                    
                     seen.add(title.lower())
                     
                     pub_date = parse_published_time(entry)
-                    if not is_recent(pub_date): 
+                    if not is_recent(pub_date):
                         continue
                     
                     articles.append({
@@ -216,7 +227,7 @@ else:
             progress_bar.empty()
 
             if df.empty:
-                st.warning("No recent articles found. Try different topics.")
+                st.warning("No matching recent articles found. Try different topics.")
             else:
                 st.success(f"✅ Found {len(df)} recent articles")
 
@@ -246,4 +257,4 @@ else:
     else:
         st.info("Select topics or add custom ones, then click the button.")
 
-st.caption("Recent articles (last 48 hours) • Grouped by selected topics")
+st.caption("Recent articles (last 48 hours) • Only articles containing the selected keyword in title")
