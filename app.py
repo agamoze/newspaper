@@ -1,6 +1,6 @@
 """
 My News Button 📰
-With Email Validation + Real-time Clock
+Final Version - Accurate IST Clock + Improved Title/Summary Filtering
 """
 
 import time
@@ -9,6 +9,7 @@ import feedparser
 import pandas as pd
 from datetime import datetime, timedelta
 from urllib.parse import quote
+import pytz
 
 # ====================== PAGE CONFIG ======================
 st.set_page_config(page_title="My News Button", page_icon="📰", layout="wide")
@@ -48,13 +49,14 @@ st.markdown("""
         position: absolute;
         top: 15px;
         right: 20px;
-        font-size: 1.1rem;
+        font-size: 1.05rem;
         color: #2C5F4A;
         font-weight: 500;
-        background: rgba(249, 247, 240, 0.9);
-        padding: 6px 12px;
+        background: rgba(249, 247, 240, 0.95);
+        padding: 8px 14px;
         border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        z-index: 100;
     }
     div[data-testid="stButton"] > button {
         background-color: #2C5F4A !important; color: white !important;
@@ -70,20 +72,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ====================== LIVE CLOCK (Top Right) ======================
-def get_current_time():
-    return datetime.now().strftime("%d %b %Y, %I:%M:%S %p IST")
+# ====================== LIVE IST CLOCK (Delhi Time) ======================
+ist_tz = pytz.timezone('Asia/Kolkata')
 
-# Show live clock
+def get_ist_time():
+    now = datetime.now(ist_tz)
+    return now.strftime("%d %b %Y, %I:%M:%S %p IST")
+
 st.markdown(f"""
 <div class="clock">
-    {get_current_time()}
+    {get_ist_time()}
 </div>
 """, unsafe_allow_html=True)
-
-# Auto-refresh clock every 1 second (using a simple trick)
-if 'clock_key' not in st.session_state:
-    st.session_state.clock_key = 0
 
 # ====================== HELPER FUNCTIONS ======================
 def build_rss_url(keyword: str, source_domain: str) -> str:
@@ -105,10 +105,12 @@ def is_recent(pub_date, days=2):
     cutoff = datetime.now() - timedelta(days=days)
     return pub_date >= cutoff
 
-def keyword_in_title(title: str, keyword: str) -> bool:
-    if not title or not keyword:
+def is_related_to_topic(title: str, summary: str, keyword: str) -> bool:
+    """Improved filter: keyword must be in title OR summary"""
+    if not keyword:
         return False
-    return keyword.lower() in title.lower()
+    text = (title + " " + (summary or "")).lower()
+    return keyword.lower() in text
 
 def fetch_articles(selected_topics, publishers, max_articles):
     articles = []
@@ -124,15 +126,19 @@ def fetch_articles(selected_topics, publishers, max_articles):
                 feed = feedparser.parse(url)
                 for entry in feed.entries:
                     title = getattr(entry, "title", "").strip()
-                    if not title or title.lower() in seen: 
+                    summary = getattr(entry, "summary", "")
+                    
+                    if not title or title.lower() in seen:
                         continue
-                    if not keyword_in_title(title, kw):
+                    
+                    # Strict filter: keyword must appear in title or summary
+                    if not is_related_to_topic(title, summary, kw):
                         continue
                     
                     seen.add(title.lower())
                     
                     pub_date = parse_published_time(entry)
-                    if not is_recent(pub_date): 
+                    if not is_recent(pub_date):
                         continue
                     
                     articles.append({
@@ -178,7 +184,6 @@ if not st.session_state.user_info_saved:
         
         if st.button("Save & Continue", use_container_width=True, type="primary"):
             if username.strip() and email.strip():
-                # Basic email validation
                 if "@" in email and "." in email and len(email) > 5:
                     st.session_state.username = username.strip()
                     st.session_state.email = email.strip()
@@ -186,7 +191,7 @@ if not st.session_state.user_info_saved:
                     st.success(f"Welcome, {username.strip()}! 🎉")
                     st.rerun()
                 else:
-                    st.error("Please enter a valid email address (must contain @ and .)")
+                    st.error("Please enter a valid email address")
             else:
                 st.error("Please fill both Name and Email")
 
@@ -246,7 +251,7 @@ else:
         if not all_selected_topics:
             st.warning("⚠️ Please select at least one topic or add a custom topic.")
         else:
-            progress_bar = st.progress(0, text="Fetching news for selected topics...")
+            progress_bar = st.progress(0, text="Fetching relevant news...")
             
             df = fetch_articles(all_selected_topics, DEFAULT_PUBLISHERS, max_articles)
             
@@ -255,9 +260,9 @@ else:
             progress_bar.empty()
 
             if df.empty:
-                st.warning("No recent articles found. Try different topics.")
+                st.warning("No matching recent articles found. Try different topics.")
             else:
-                st.success(f"✅ Found {len(df)} recent articles")
+                st.success(f"✅ Found {len(df)} relevant articles")
 
                 for topic, group in df.groupby("Topic"):
                     st.markdown(f'<div class="topic-header">📌 {topic} — {len(group)} articles</div>', unsafe_allow_html=True)
@@ -285,4 +290,4 @@ else:
     else:
         st.info("Select topics or add custom ones, then click the button.")
 
-st.caption("Recent articles (last 48 hours) • Keyword must appear in title")
+st.caption("Recent articles (last 48 hours) • Keyword must appear in title or summary")
