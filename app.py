@@ -1,6 +1,6 @@
 """
 AI meets the morning paper
-Personalized Daily News Fetcher
+With always-on clock + per-topic "nothing new" messages
 """
 
 import time
@@ -42,20 +42,8 @@ if 'custom_topics' not in st.session_state:
 st.markdown("""
 <style>
     [data-testid="stAppViewContainer"], [data-testid="stMain"] { background-color: #F9F7F0 !important; }
-    .main-title { 
-        text-align: center; 
-        font-family: 'Georgia', serif; 
-        font-size: 2.6rem; 
-        font-weight: 700; 
-        color: #1F1F1F; 
-        margin-bottom: 0.5rem; 
-    }
-    .greeting { 
-        text-align: center; 
-        font-size: 1.25rem; 
-        color: #2C2C2C; 
-        margin-bottom: 2rem; 
-    }
+    .main-title { text-align: center; font-family: 'Georgia', serif; font-size: 2.6rem; font-weight: 700; color: #1F1F1F; margin-bottom: 0.5rem; }
+    .greeting { text-align: center; font-size: 1.25rem; color: #2C2C2C; margin-bottom: 2rem; }
     .clock {
         position: absolute;
         top: 15px;
@@ -67,74 +55,29 @@ st.markdown("""
         padding: 8px 14px;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        z-index: 100;
     }
     div[data-testid="stButton"] > button {
-        background-color: #2C5F4A !important; 
-        color: white !important;
-        font-size: 1.05rem !important; 
-        font-weight: 600 !important; 
-        padding: 0.7rem 2.5rem !important; 
-        border-radius: 10px !important;
+        background-color: #2C5F4A !important; color: white !important;
+        font-size: 1.05rem !important; font-weight: 600 !important; padding: 0.7rem 2.5rem !important; border-radius: 10px !important;
     }
-    .article-table { 
-        width: 100%; 
-        border-collapse: collapse; 
-        background: white; 
-        border-radius: 12px; 
-        overflow: hidden; 
-        box-shadow: 0 2px 12px rgba(0,0,0,0.07); 
-    }
-    .article-table th { 
-        background-color: #F4F1E9; 
-        padding: 14px 12px; 
-        text-align: left; 
-        font-weight: 600; 
-    }
-    .article-table td { 
-        padding: 14px 12px; 
-        border-bottom: 1px solid #EDE9DF; 
-    }
-    .article-table a { 
-        color: #1F1F1F; 
-        text-decoration: none; 
-        font-weight: 500; 
-    }
-    .article-table a:hover { 
-        color: #2C5F4A; 
-        text-decoration: underline; 
-    }
-    .topic-header { 
-        background-color: #F4F1E9; 
-        padding: 12px 16px; 
-        border-radius: 8px; 
-        margin: 25px 0 12px 0; 
-        font-size: 1.2rem; 
-        font-weight: 600; 
-        color: #1F1F1F; 
-    }
-    .custom-chip { 
-        display: inline-block; 
-        background: #2C5F4A; 
-        color: white; 
-        padding: 6px 14px; 
-        border-radius: 20px; 
-        margin: 5px 5px 5px 0; 
-        font-size: 0.92rem;
-    }
+    .article-table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+    .article-table th { background-color: #F4F1E9; padding: 14px 12px; text-align: left; font-weight: 600; }
+    .article-table td { padding: 14px 12px; border-bottom: 1px solid #EDE9DF; }
+    .article-table a { color: #1F1F1F; text-decoration: none; font-weight: 500; }
+    .article-table a:hover { color: #2C5F4A; text-decoration: underline; }
+    .topic-header { background-color: #F4F1E9; padding: 12px 16px; border-radius: 8px; margin: 25px 0 12px 0; font-size: 1.2rem; font-weight: 600; color: #1F1F1F; }
+    .custom-chip { display: inline-block; background: #2C5F4A; color: white; padding: 6px 14px; border-radius: 20px; margin: 5px 5px 5px 0; font-size: 0.92rem; }
 </style>
 """, unsafe_allow_html=True)
 
-# ====================== LIVE IST CLOCK ======================
-def get_ist_time():
+# ====================== ALWAYS-ON IST CLOCK ======================
+clock_placeholder = st.empty()
+
+def update_clock():
     utc_now = datetime.utcnow()
     ist_now = utc_now + timedelta(hours=5, minutes=30)
     return ist_now.strftime("%d %b %Y, %I:%M:%S %p IST")
-
-st.markdown(f"""
-<div class="clock">
-    {get_ist_time()}
-</div>
-""", unsafe_allow_html=True)
 
 # ====================== HELPER FUNCTIONS ======================
 def build_rss_url(keyword: str, source_domain: str) -> str:
@@ -246,6 +189,9 @@ else:
     st.markdown('<div class="main-title">AI meets the morning paper</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="greeting">Hi {st.session_state.username}, welcome again</div>', unsafe_allow_html=True)
 
+    # Live Clock (updates continuously)
+    clock_placeholder = st.empty()
+
     # Sidebar
     with st.sidebar:
         st.markdown("### 🎯 Select Topics")
@@ -298,7 +244,7 @@ else:
             
             df = fetch_articles(all_selected_topics, DEFAULT_PUBLISHERS)
             
-            # Smooth animation finish
+            # Finish animation
             for i in range(90, 101):
                 progress_bar.progress(i)
                 time.sleep(0.03)
@@ -307,30 +253,34 @@ else:
             if df.empty:
                 st.info("**Nothing new today** 😊")
             else:
-                st.success(f"✅ Found {len(df)} relevant articles")
-
-                for topic, group in df.groupby("Topic"):
-                    st.markdown(f'<div class="topic-header">📌 {topic} — {len(group)} articles</div>', unsafe_allow_html=True)
-                    
-                    html_table = """
-                    <table class="article-table">
-                        <thead><tr>
-                            <th>Article Title</th>
-                            <th>Publisher</th>
-                            <th>Published</th>
-                        </tr></thead>
-                        <tbody>
-                    """
-                    for _, row in group.iterrows():
-                        html_table += f"""
-                            <tr>
-                                <td><a href="{row['Link']}" target="_blank" rel="noopener noreferrer">{row['Title']}</a></td>
-                                <td>{row['Publisher']}</td>
-                                <td>{row['Published']}</td>
-                            </tr>
+                # Show per-topic messages
+                topics_with_articles = df['Topic'].unique()
+                for topic in all_selected_topics:
+                    if topic in topics_with_articles:
+                        group = df[df['Topic'] == topic]
+                        st.markdown(f'<div class="topic-header">📌 {topic} — {len(group)} articles</div>', unsafe_allow_html=True)
+                        
+                        html_table = """
+                        <table class="article-table">
+                            <thead><tr>
+                                <th>Article Title</th>
+                                <th>Publisher</th>
+                                <th>Published</th>
+                            </tr></thead>
+                            <tbody>
                         """
-                    html_table += "</tbody></table><br>"
-                    st.html(html_table)
+                        for _, row in group.iterrows():
+                            html_table += f"""
+                                <tr>
+                                    <td><a href="{row['Link']}" target="_blank" rel="noopener noreferrer">{row['Title']}</a></td>
+                                    <td>{row['Publisher']}</td>
+                                    <td>{row['Published']}</td>
+                                </tr>
+                            """
+                        html_table += "</tbody></table><br>"
+                        st.html(html_table)
+                    else:
+                        st.info(f"**Nothing new in {topic} lately** 😊")
 
     else:
         st.info("Select topics or add custom ones, then click the button.")
