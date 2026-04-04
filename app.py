@@ -1,6 +1,6 @@
 """
-My News Button 📰
-Animated Loading + Real-time Clock (Never Stops)
+AI meets the morning paper
+Personalized Daily News Fetcher
 """
 
 import time
@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from urllib.parse import quote
 
 # ====================== PAGE CONFIG ======================
-st.set_page_config(page_title="My News Button", page_icon="📰", layout="wide")
+st.set_page_config(page_title="AI meets the morning paper", page_icon="📰", layout="wide")
 
 # ====================== DEFAULT SETTINGS ======================
 DEFAULT_PUBLISHERS = [
@@ -42,8 +42,20 @@ if 'custom_topics' not in st.session_state:
 st.markdown("""
 <style>
     [data-testid="stAppViewContainer"], [data-testid="stMain"] { background-color: #F9F7F0 !important; }
-    .main-title { text-align: center; font-family: 'Georgia', serif; font-size: 2.8rem; font-weight: 700; color: #1F1F1F; margin-bottom: 0.5rem; }
-    .greeting { text-align: center; font-size: 1.25rem; color: #2C2C2C; margin-bottom: 2rem; }
+    .main-title { 
+        text-align: center; 
+        font-family: 'Georgia', serif; 
+        font-size: 2.6rem; 
+        font-weight: 700; 
+        color: #1F1F1F; 
+        margin-bottom: 0.5rem; 
+    }
+    .greeting { 
+        text-align: center; 
+        font-size: 1.25rem; 
+        color: #2C2C2C; 
+        margin-bottom: 2rem; 
+    }
     .clock {
         position: absolute;
         top: 15px;
@@ -55,30 +67,74 @@ st.markdown("""
         padding: 8px 14px;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        z-index: 100;
     }
     div[data-testid="stButton"] > button {
-        background-color: #2C5F4A !important; color: white !important;
-        font-size: 1.05rem !important; font-weight: 600 !important; padding: 0.7rem 2.5rem !important; border-radius: 10px !important;
+        background-color: #2C5F4A !important; 
+        color: white !important;
+        font-size: 1.05rem !important; 
+        font-weight: 600 !important; 
+        padding: 0.7rem 2.5rem !important; 
+        border-radius: 10px !important;
     }
-    .article-table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
-    .article-table th { background-color: #F4F1E9; padding: 14px 12px; text-align: left; font-weight: 600; }
-    .article-table td { padding: 14px 12px; border-bottom: 1px solid #EDE9DF; }
-    .article-table a { color: #1F1F1F; text-decoration: none; font-weight: 500; }
-    .article-table a:hover { color: #2C5F4A; text-decoration: underline; }
-    .topic-header { background-color: #F4F1E9; padding: 12px 16px; border-radius: 8px; margin: 25px 0 12px 0; font-size: 1.2rem; font-weight: 600; color: #1F1F1F; }
-    .custom-chip { display: inline-block; background: #2C5F4A; color: white; padding: 6px 14px; border-radius: 20px; margin: 5px 5px 5px 0; font-size: 0.92rem; }
+    .article-table { 
+        width: 100%; 
+        border-collapse: collapse; 
+        background: white; 
+        border-radius: 12px; 
+        overflow: hidden; 
+        box-shadow: 0 2px 12px rgba(0,0,0,0.07); 
+    }
+    .article-table th { 
+        background-color: #F4F1E9; 
+        padding: 14px 12px; 
+        text-align: left; 
+        font-weight: 600; 
+    }
+    .article-table td { 
+        padding: 14px 12px; 
+        border-bottom: 1px solid #EDE9DF; 
+    }
+    .article-table a { 
+        color: #1F1F1F; 
+        text-decoration: none; 
+        font-weight: 500; 
+    }
+    .article-table a:hover { 
+        color: #2C5F4A; 
+        text-decoration: underline; 
+    }
+    .topic-header { 
+        background-color: #F4F1E9; 
+        padding: 12px 16px; 
+        border-radius: 8px; 
+        margin: 25px 0 12px 0; 
+        font-size: 1.2rem; 
+        font-weight: 600; 
+        color: #1F1F1F; 
+    }
+    .custom-chip { 
+        display: inline-block; 
+        background: #2C5F4A; 
+        color: white; 
+        padding: 6px 14px; 
+        border-radius: 20px; 
+        margin: 5px 5px 5px 0; 
+        font-size: 0.92rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# ====================== LIVE IST CLOCK (Real-time) ======================
+# ====================== LIVE IST CLOCK ======================
 def get_ist_time():
     utc_now = datetime.utcnow()
     ist_now = utc_now + timedelta(hours=5, minutes=30)
     return ist_now.strftime("%d %b %Y, %I:%M:%S %p IST")
 
-# Display clock that updates in real-time
-clock_placeholder = st.empty()
+st.markdown(f"""
+<div class="clock">
+    {get_ist_time()}
+</div>
+""", unsafe_allow_html=True)
 
 # ====================== HELPER FUNCTIONS ======================
 def build_rss_url(keyword: str, source_domain: str) -> str:
@@ -106,7 +162,7 @@ def is_related_to_topic(title: str, summary: str, keyword: str) -> bool:
     text = (title + " " + (summary or "")).lower()
     return keyword.lower() in text
 
-def fetch_articles(selected_topics, publishers, max_articles):
+def fetch_articles(selected_topics, publishers):
     articles = []
     seen = set()
     
@@ -147,8 +203,6 @@ def fetch_articles(selected_topics, publishers, max_articles):
     df = pd.DataFrame(articles)
     if not df.empty:
         df = df.sort_values(by=["Topic", "Published_dt"], ascending=[True, False])
-        df = df.groupby("Topic").head(max_articles)
-        df = df.drop(columns=["Published_dt"])
     return df
 
 PUBLISHER_SOURCE_MAP = {
@@ -160,11 +214,11 @@ PUBLISHER_SOURCE_MAP = {
 
 # ====================== ONBOARDING ======================
 if not st.session_state.user_info_saved:
-    st.markdown('<div class="main-title">My News Button 📰</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AI meets the morning paper</div>', unsafe_allow_html=True)
     
     st.markdown("""
     <div style="text-align: center; margin: 3rem 0 2rem 0;">
-        <h2>Welcome to My News Button</h2>
+        <h2>Welcome to AI meets the morning paper</h2>
         <p>Please enter your details to personalize your experience</p>
     </div>
     """, unsafe_allow_html=True)
@@ -189,7 +243,7 @@ if not st.session_state.user_info_saved:
 
 else:
     # ====================== MAIN APP ======================
-    st.markdown('<div class="main-title">My News Button 📰</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AI meets the morning paper</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="greeting">Hi {st.session_state.username}, welcome again</div>', unsafe_allow_html=True)
 
     # Sidebar
@@ -228,9 +282,6 @@ else:
             st.markdown("**Selected Topics:**")
             for t in all_selected_topics:
                 st.markdown(f'<span class="custom-chip">{t}</span>', unsafe_allow_html=True)
-        
-        st.markdown("---")
-        max_articles = st.slider("Max articles per topic", 3, 12, 6)
 
     # Fetch Button
     _, col, _ = st.columns([1, 2, 1])
@@ -243,27 +294,18 @@ else:
         if not all_selected_topics:
             st.warning("⚠️ Please select at least one topic or add a custom topic.")
         else:
-            # Animated Progress Bar
-            progress_text = "Fetching relevant news articles..."
-            progress_bar = st.progress(0, text=progress_text)
+            progress_bar = st.progress(0, text="Fetching relevant news...")
             
-            # Simulate smooth animation while fetching
-            for i in range(1, 91, 5):   # Animate up to 90%
-                progress_bar.progress(i, text=progress_text)
-                time.sleep(0.08)
+            df = fetch_articles(all_selected_topics, DEFAULT_PUBLISHERS)
             
-            # Actual fetching
-            df = fetch_articles(all_selected_topics, DEFAULT_PUBLISHERS, max_articles)
-            
-            # Finish animation
-            for i in range(91, 101):
-                progress_bar.progress(i, text="Almost done...")
+            # Smooth animation finish
+            for i in range(90, 101):
+                progress_bar.progress(i)
                 time.sleep(0.03)
-            
             progress_bar.empty()
 
             if df.empty:
-                st.warning("No matching recent articles found. Try different topics.")
+                st.info("**Nothing new today** 😊")
             else:
                 st.success(f"✅ Found {len(df)} relevant articles")
 
