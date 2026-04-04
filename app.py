@@ -1,6 +1,6 @@
 """
 My News Button 📰
-Final Version - Accurate IST Clock + Improved Title/Summary Filtering
+Final Version - IST Clock + Smart Filtering + Email Validation
 """
 
 import time
@@ -9,7 +9,6 @@ import feedparser
 import pandas as pd
 from datetime import datetime, timedelta
 from urllib.parse import quote
-import pytz
 
 # ====================== PAGE CONFIG ======================
 st.set_page_config(page_title="My News Button", page_icon="📰", layout="wide")
@@ -73,11 +72,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ====================== LIVE IST CLOCK (Delhi Time) ======================
-ist_tz = pytz.timezone('Asia/Kolkata')
-
 def get_ist_time():
-    now = datetime.now(ist_tz)
-    return now.strftime("%d %b %Y, %I:%M:%S %p IST")
+    # Manual IST offset (+5:30 hours)
+    utc_now = datetime.utcnow()
+    ist_now = utc_now + timedelta(hours=5, minutes=30)
+    return ist_now.strftime("%d %b %Y, %I:%M:%S %p IST")
 
 st.markdown(f"""
 <div class="clock">
@@ -106,7 +105,7 @@ def is_recent(pub_date, days=2):
     return pub_date >= cutoff
 
 def is_related_to_topic(title: str, summary: str, keyword: str) -> bool:
-    """Improved filter: keyword must be in title OR summary"""
+    """Check if keyword is in title or summary"""
     if not keyword:
         return False
     text = (title + " " + (summary or "")).lower()
@@ -131,7 +130,6 @@ def fetch_articles(selected_topics, publishers, max_articles):
                     if not title or title.lower() in seen:
                         continue
                     
-                    # Strict filter: keyword must appear in title or summary
                     if not is_related_to_topic(title, summary, kw):
                         continue
                     
