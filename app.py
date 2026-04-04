@@ -1,6 +1,6 @@
 """
 My News Button 📰
-Final Version - IST Clock + Smart Filtering + Email Validation
+Fixed Email Validation + Proper Button Layout
 """
 
 import time
@@ -55,7 +55,6 @@ st.markdown("""
         padding: 8px 14px;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        z-index: 100;
     }
     div[data-testid="stButton"] > button {
         background-color: #2C5F4A !important; color: white !important;
@@ -71,9 +70,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ====================== LIVE IST CLOCK (Delhi Time) ======================
+# ====================== LIVE IST CLOCK ======================
 def get_ist_time():
-    # Manual IST offset (+5:30 hours)
     utc_now = datetime.utcnow()
     ist_now = utc_now + timedelta(hours=5, minutes=30)
     return ist_now.strftime("%d %b %Y, %I:%M:%S %p IST")
@@ -83,6 +81,25 @@ st.markdown(f"""
     {get_ist_time()}
 </div>
 """, unsafe_allow_html=True)
+
+# ====================== EMAIL VALIDATION ======================
+def is_valid_email(email: str) -> bool:
+    if not email or "@" not in email or "." not in email:
+        return False
+    if email.count("@") != 1:
+        return False
+    if " " in email:
+        return False
+    local, domain = email.split("@")
+    if not local or not domain:
+        return False
+    if local.startswith(".") or local.endswith(".") or ".." in local:
+        return False
+    if domain.startswith("-") or domain.endswith("-") or ".." in domain:
+        return False
+    if len(email) > 254 or len(local) > 64:
+        return False
+    return True
 
 # ====================== HELPER FUNCTIONS ======================
 def build_rss_url(keyword: str, source_domain: str) -> str:
@@ -105,7 +122,6 @@ def is_recent(pub_date, days=2):
     return pub_date >= cutoff
 
 def is_related_to_topic(title: str, summary: str, keyword: str) -> bool:
-    """Check if keyword is in title or summary"""
     if not keyword:
         return False
     text = (title + " " + (summary or "")).lower()
@@ -129,7 +145,6 @@ def fetch_articles(selected_topics, publishers, max_articles):
                     
                     if not title or title.lower() in seen:
                         continue
-                    
                     if not is_related_to_topic(title, summary, kw):
                         continue
                     
@@ -164,7 +179,7 @@ PUBLISHER_SOURCE_MAP = {
     "Economic Times": "economictimes.indiatimes.com",
 }
 
-# ====================== ONBOARDING WITH EMAIL VALIDATION ======================
+# ====================== ONBOARDING ======================
 if not st.session_state.user_info_saved:
     st.markdown('<div class="main-title">My News Button 📰</div>', unsafe_allow_html=True)
     
@@ -182,7 +197,7 @@ if not st.session_state.user_info_saved:
         
         if st.button("Save & Continue", use_container_width=True, type="primary"):
             if username.strip() and email.strip():
-                if "@" in email and "." in email and len(email) > 5:
+                if is_valid_email(email.strip()):
                     st.session_state.username = username.strip()
                     st.session_state.email = email.strip()
                     st.session_state.user_info_saved = True
@@ -212,6 +227,7 @@ else:
         st.markdown("### ➕ Add Custom Topic")
         custom_input = st.text_input("Enter new topic", placeholder="e.g. EV Battery Technology", key="custom_input_key")
         
+        # Fixed button layout
         col_add, col_clear = st.columns([3, 1])
         with col_add:
             if st.button("Add Topic", use_container_width=True):
