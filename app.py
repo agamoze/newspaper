@@ -1,6 +1,6 @@
 """
 My News Button 📰
-Fixed Custom Topic UI + Better Layout
+Final Version with Onboarding + All Previous Features
 """
 
 import time
@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from urllib.parse import quote
 
 # ====================== PAGE CONFIG ======================
-st.set_page_config(page_title="AI Meets the Morning Paper", page_icon="📰", layout="wide")
+st.set_page_config(page_title="My News Button", page_icon="📰", layout="wide")
 
 # ====================== DEFAULT SETTINGS ======================
 DEFAULT_PUBLISHERS = [
@@ -26,6 +26,15 @@ ALL_TOPICS = [
 ]
 
 # ====================== SESSION STATE ======================
+if 'user_info_saved' not in st.session_state:
+    st.session_state.user_info_saved = False
+
+if 'username' not in st.session_state:
+    st.session_state.username = ""
+
+if 'email' not in st.session_state:
+    st.session_state.email = ""
+
 if 'custom_topics' not in st.session_state:
     st.session_state.custom_topics = []
 
@@ -46,59 +55,135 @@ st.markdown("""
     .article-table a:hover { color: #2C5F4A; text-decoration: underline; }
     .topic-header { background-color: #F4F1E9; padding: 12px 16px; border-radius: 8px; margin: 25px 0 12px 0; font-size: 1.2rem; font-weight: 600; color: #1F1F1F; }
     .custom-chip { 
-        display: inline-block; 
-        background: #2C5F4A; 
-        color: white; 
-        padding: 6px 14px; 
-        border-radius: 20px; 
-        margin: 5px 5px 5px 0; 
-        font-size: 0.92rem;
+        display: inline-block; background: #2C5F4A; color: white; padding: 6px 14px; 
+        border-radius: 20px; margin: 5px 5px 5px 0; font-size: 0.92rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ====================== SIDEBAR ======================
-with st.sidebar:
-    st.markdown("### 🎯 Select Topics")
+# ====================== ONBOARDING ======================
+if not st.session_state.user_info_saved:
+    st.markdown('<div class="main-title">My News Button 📰</div>', unsafe_allow_html=True)
     
-    # Predefined topics
-    selected_predefined = []
-    for topic in ALL_TOPICS:
-        if st.checkbox(topic, value=False, key=f"chk_{topic}"):
-            selected_predefined.append(topic)
+    st.markdown("""
+    <div style="text-align: center; margin: 3rem 0 2rem 0;">
+        <h2>Welcome to My News Button</h2>
+        <p>Please enter your details to personalize your experience</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    st.markdown("---")
-    
-    # Custom Topic Section - Better Layout
-    st.markdown("### ➕ Add Custom Topic")
-    custom_input = st.text_input("Enter new topic", placeholder="e.g. EV Battery Technology", key="custom_input_key")
-    
-    col_add, col_clear = st.columns([2, 1])
-    with col_add:
-        if st.button("Add Topic", use_container_width=True):
-            if custom_input.strip():
-                new_topic = custom_input.strip()
-                if new_topic not in st.session_state.custom_topics and new_topic not in selected_predefined:
-                    st.session_state.custom_topics.append(new_topic)
-                    st.success(f"Added: {new_topic}")
-                else:
-                    st.warning("This topic already exists")
-    
-    with col_clear:
-        if st.button("Clear Custom", use_container_width=True):
-            st.session_state.custom_topics = []
-            st.rerun()
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        username = st.text_input("Your Name", placeholder="Enter your name")
+        email = st.text_input("Email Address", placeholder="your@email.com")
+        
+        if st.button("Save & Continue", use_container_width=True, type="primary"):
+            if username.strip() and email.strip():
+                st.session_state.username = username.strip()
+                st.session_state.email = email.strip()
+                st.session_state.user_info_saved = True
+                st.success(f"Welcome, {username.strip()}! 🎉")
+                st.rerun()
+            else:
+                st.error("Please fill both Name and Email")
 
-    # Show all selected topics
-    all_selected_topics = selected_predefined + st.session_state.custom_topics
-    
-    if all_selected_topics:
-        st.markdown("**Selected Topics:**")
-        for t in all_selected_topics:
-            st.markdown(f'<span class="custom-chip">{t}</span>', unsafe_allow_html=True)
-    
-    st.markdown("---")
-    max_articles = st.slider("Max articles per topic", 3, 12, 6)
+else:
+    # ====================== MAIN APP ======================
+    st.markdown('<div class="main-title">My News Button 📰</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="greeting">Hi {st.session_state.username}, welcome again</div>', unsafe_allow_html=True)
+
+    # Sidebar
+    with st.sidebar:
+        st.markdown("### 🎯 Select Topics")
+        
+        selected_predefined = []
+        for topic in ALL_TOPICS:
+            if st.checkbox(topic, value=False, key=f"chk_{topic}"):
+                selected_predefined.append(topic)
+        
+        st.markdown("---")
+        
+        st.markdown("### ➕ Add Custom Topic")
+        custom_input = st.text_input("Enter new topic", placeholder="e.g. EV Battery Technology", key="custom_input_key")
+        
+        col_add, col_clear = st.columns([3, 1])
+        with col_add:
+            if st.button("Add Topic", use_container_width=True):
+                if custom_input.strip():
+                    new_topic = custom_input.strip()
+                    if new_topic not in st.session_state.custom_topics and new_topic not in selected_predefined:
+                        st.session_state.custom_topics.append(new_topic)
+                        st.success(f"Added: {new_topic}")
+                    else:
+                        st.warning("This topic already exists")
+        
+        with col_clear:
+            if st.button("Clear Custom", use_container_width=True):
+                st.session_state.custom_topics = []
+                st.rerun()
+
+        all_selected_topics = selected_predefined + st.session_state.custom_topics
+        
+        if all_selected_topics:
+            st.markdown("**Selected Topics:**")
+            for t in all_selected_topics:
+                st.markdown(f'<span class="custom-chip">{t}</span>', unsafe_allow_html=True)
+        
+        st.markdown("---")
+        max_articles = st.slider("Max articles per topic", 3, 12, 6)
+
+    # Main Button
+    _, col, _ = st.columns([1, 2, 1])
+    with col:
+        fetch_clicked = st.button("Fetch Latest News", use_container_width=True)
+
+    if fetch_clicked:
+        all_selected_topics = selected_predefined + st.session_state.custom_topics
+        
+        if not all_selected_topics:
+            st.warning("⚠️ Please select at least one topic or add a custom topic.")
+        else:
+            progress_bar = st.progress(0, text="Fetching news for selected topics...")
+            
+            df = fetch_articles(all_selected_topics, DEFAULT_PUBLISHERS, max_articles)
+            
+            progress_bar.progress(100, text="Completed!")
+            time.sleep(0.4)
+            progress_bar.empty()
+
+            if df.empty:
+                st.warning("No recent articles found. Try different topics.")
+            else:
+                st.success(f"✅ Found {len(df)} recent articles")
+
+                for topic, group in df.groupby("Topic"):
+                    st.markdown(f'<div class="topic-header">📌 {topic} — {len(group)} articles</div>', unsafe_allow_html=True)
+                    
+                    html_table = """
+                    <table class="article-table">
+                        <thead><tr>
+                            <th>Article Title</th>
+                            <th>Publisher</th>
+                            <th>Published</th>
+                        </tr></thead>
+                        <tbody>
+                    """
+                    for _, row in group.iterrows():
+                        html_table += f"""
+                            <tr>
+                                <td><a href="{row['Link']}" target="_blank" rel="noopener noreferrer">{row['Title']}</a></td>
+                                <td>{row['Publisher']}</td>
+                                <td>{row['Published']}</td>
+                            </tr>
+                        """
+                    html_table += "</tbody></table><br>"
+                    st.html(html_table)
+
+    else:
+        st.info("Select topics or add custom ones, then click the button.")
+
+st.caption("Recent articles (last 48 hours) • Grouped by selected topics")
+
 
 # ====================== HELPER FUNCTIONS ======================
 def build_rss_url(keyword: str, source_domain: str) -> str:
@@ -163,58 +248,3 @@ PUBLISHER_SOURCE_MAP = {
     "The Hindu": "thehindu.com",
     "Economic Times": "economictimes.indiatimes.com",
 }
-
-# ====================== MAIN UI ======================
-st.markdown('<div class="main-title">My News Button 📰</div>', unsafe_allow_html=True)
-st.markdown('<div class="greeting">Hi mate, welcome again</div>', unsafe_allow_html=True)
-
-_, col, _ = st.columns([1, 2, 1])
-with col:
-    fetch_clicked = st.button("Fetch Latest News", use_container_width=True)
-
-if fetch_clicked:
-    all_selected_topics = selected_predefined + st.session_state.custom_topics
-    
-    if not all_selected_topics:
-        st.warning("⚠️ Please select at least one topic or add a custom topic.")
-    else:
-        progress_bar = st.progress(0, text="Fetching news for selected topics...")
-        
-        df = fetch_articles(all_selected_topics, DEFAULT_PUBLISHERS, max_articles)
-        
-        progress_bar.progress(100, text="Completed!")
-        time.sleep(0.4)
-        progress_bar.empty()
-
-        if df.empty:
-            st.warning("No recent articles found. Try different topics.")
-        else:
-            st.success(f"✅ Found {len(df)} recent articles")
-
-            for topic, group in df.groupby("Topic"):
-                st.markdown(f'<div class="topic-header">📌 {topic} — {len(group)} articles</div>', unsafe_allow_html=True)
-                
-                html_table = """
-                <table class="article-table">
-                    <thead><tr>
-                        <th>Article Title</th>
-                        <th>Publisher</th>
-                        <th>Published</th>
-                    </tr></thead>
-                    <tbody>
-                """
-                for _, row in group.iterrows():
-                    html_table += f"""
-                        <tr>
-                            <td><a href="{row['Link']}" target="_blank" rel="noopener noreferrer">{row['Title']}</a></td>
-                            <td>{row['Publisher']}</td>
-                            <td>{row['Published']}</td>
-                        </tr>
-                    """
-                html_table += "</tbody></table><br>"
-                st.html(html_table)
-
-else:
-    st.info("Select topics or add custom ones, then click the button.")
-
-st.caption("Recent articles (last 48 hours) • Grouped by selected topics")
