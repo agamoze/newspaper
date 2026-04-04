@@ -1,6 +1,6 @@
 """
 My News Button 📰
-Final Version with Onboarding + All Previous Features
+Complete Version with Onboarding + Fixed Sidebar
 """
 
 import time
@@ -41,27 +41,80 @@ if 'custom_topics' not in st.session_state:
 # ====================== CUSTOM CSS ======================
 st.markdown("""
 <style>
-    [data-testid="stAppViewContainer"], [data-testid="stMain"] { background-color: #F9F7F0 !important; }
-    .main-title { text-align: center; font-family: 'Georgia', serif; font-size: 2.8rem; font-weight: 700; color: #1F1F1F; margin-bottom: 0.5rem; }
-    .greeting { text-align: center; font-size: 1.25rem; color: #2C2C2C; margin-bottom: 2rem; }
-    div[data-testid="stButton"] > button {
-        background-color: #2C5F4A !important; color: white !important;
-        font-size: 1.05rem !important; font-weight: 600 !important; padding: 0.7rem 2.5rem !important; border-radius: 10px !important;
+    [data-testid="stAppViewContainer"], [data-testid="stMain"] { 
+        background-color: #F9F7F0 !important; 
     }
-    .article-table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
-    .article-table th { background-color: #F4F1E9; padding: 14px 12px; text-align: left; font-weight: 600; }
-    .article-table td { padding: 14px 12px; border-bottom: 1px solid #EDE9DF; }
-    .article-table a { color: #1F1F1F; text-decoration: none; font-weight: 500; }
-    .article-table a:hover { color: #2C5F4A; text-decoration: underline; }
-    .topic-header { background-color: #F4F1E9; padding: 12px 16px; border-radius: 8px; margin: 25px 0 12px 0; font-size: 1.2rem; font-weight: 600; color: #1F1F1F; }
+    .main-title { 
+        text-align: center; 
+        font-family: 'Georgia', serif; 
+        font-size: 2.8rem; 
+        font-weight: 700; 
+        color: #1F1F1F; 
+        margin-bottom: 0.5rem; 
+    }
+    .greeting { 
+        text-align: center; 
+        font-size: 1.25rem; 
+        color: #2C2C2C; 
+        margin-bottom: 2rem; 
+    }
+    div[data-testid="stButton"] > button {
+        background-color: #2C5F4A !important; 
+        color: white !important;
+        font-size: 1.05rem !important; 
+        font-weight: 600 !important; 
+        padding: 0.7rem 2.5rem !important; 
+        border-radius: 10px !important;
+    }
+    .article-table { 
+        width: 100%; 
+        border-collapse: collapse; 
+        background: white; 
+        border-radius: 12px; 
+        overflow: hidden; 
+        box-shadow: 0 2px 12px rgba(0,0,0,0.07); 
+    }
+    .article-table th { 
+        background-color: #F4F1E9; 
+        padding: 14px 12px; 
+        text-align: left; 
+        font-weight: 600; 
+    }
+    .article-table td { 
+        padding: 14px 12px; 
+        border-bottom: 1px solid #EDE9DF; 
+    }
+    .article-table a { 
+        color: #1F1F1F; 
+        text-decoration: none; 
+        font-weight: 500; 
+    }
+    .article-table a:hover { 
+        color: #2C5F4A; 
+        text-decoration: underline; 
+    }
+    .topic-header { 
+        background-color: #F4F1E9; 
+        padding: 12px 16px; 
+        border-radius: 8px; 
+        margin: 25px 0 12px 0; 
+        font-size: 1.2rem; 
+        font-weight: 600; 
+        color: #1F1F1F; 
+    }
     .custom-chip { 
-        display: inline-block; background: #2C5F4A; color: white; padding: 6px 14px; 
-        border-radius: 20px; margin: 5px 5px 5px 0; font-size: 0.92rem;
+        display: inline-block; 
+        background: #2C5F4A; 
+        color: white; 
+        padding: 6px 14px; 
+        border-radius: 20px; 
+        margin: 5px 5px 5px 0; 
+        font-size: 0.92rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ====================== ONBOARDING ======================
+# ====================== ONBOARDING (First Visit) ======================
 if not st.session_state.user_info_saved:
     st.markdown('<div class="main-title">My News Button 📰</div>', unsafe_allow_html=True)
     
@@ -92,7 +145,7 @@ else:
     st.markdown('<div class="main-title">My News Button 📰</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="greeting">Hi {st.session_state.username}, welcome again</div>', unsafe_allow_html=True)
 
-    # Sidebar
+    # ====================== SIDEBAR ======================
     with st.sidebar:
         st.markdown("### 🎯 Select Topics")
         
@@ -104,8 +157,11 @@ else:
         st.markdown("---")
         
         st.markdown("### ➕ Add Custom Topic")
-        custom_input = st.text_input("Enter new topic", placeholder="e.g. EV Battery Technology", key="custom_input_key")
+        custom_input = st.text_input("Enter new topic", 
+                                    placeholder="e.g. EV Battery Technology", 
+                                    key="custom_input_key")
         
+        # Fixed button layout
         col_add, col_clear = st.columns([3, 1])
         with col_add:
             if st.button("Add Topic", use_container_width=True):
@@ -122,6 +178,7 @@ else:
                 st.session_state.custom_topics = []
                 st.rerun()
 
+        # Combine all topics
         all_selected_topics = selected_predefined + st.session_state.custom_topics
         
         if all_selected_topics:
@@ -132,7 +189,7 @@ else:
         st.markdown("---")
         max_articles = st.slider("Max articles per topic", 3, 12, 6)
 
-    # Main Button
+    # ====================== FETCH BUTTON ======================
     _, col, _ = st.columns([1, 2, 1])
     with col:
         fetch_clicked = st.button("Fetch Latest News", use_container_width=True)
@@ -184,7 +241,6 @@ else:
 
 st.caption("Recent articles (last 48 hours) • Grouped by selected topics")
 
-
 # ====================== HELPER FUNCTIONS ======================
 def build_rss_url(keyword: str, source_domain: str) -> str:
     query = f"site:{source_domain} {keyword}"
@@ -211,18 +267,21 @@ def fetch_articles(selected_topics, publishers, max_articles):
     
     for pub in publishers:
         domain = PUBLISHER_SOURCE_MAP.get(pub)
-        if not domain: continue
+        if not domain: 
+            continue
         for kw in selected_topics:
             url = build_rss_url(kw, domain)
             try:
                 feed = feedparser.parse(url)
                 for entry in feed.entries:
                     title = getattr(entry, "title", "").strip()
-                    if not title or title.lower() in seen: continue
+                    if not title or title.lower() in seen: 
+                        continue
                     seen.add(title.lower())
                     
                     pub_date = parse_published_time(entry)
-                    if not is_recent(pub_date): continue
+                    if not is_recent(pub_date): 
+                        continue
                     
                     articles.append({
                         "Topic": kw,
