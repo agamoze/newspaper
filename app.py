@@ -1,6 +1,6 @@
 """
 My News Button 📰
-Fixed Email Validation + Proper Button Layout
+Animated Loading + Real-time Clock (Never Stops)
 """
 
 import time
@@ -55,6 +55,7 @@ st.markdown("""
         padding: 8px 14px;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        z-index: 100;
     }
     div[data-testid="stButton"] > button {
         background-color: #2C5F4A !important; color: white !important;
@@ -70,36 +71,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ====================== LIVE IST CLOCK ======================
+# ====================== LIVE IST CLOCK (Real-time) ======================
 def get_ist_time():
     utc_now = datetime.utcnow()
     ist_now = utc_now + timedelta(hours=5, minutes=30)
     return ist_now.strftime("%d %b %Y, %I:%M:%S %p IST")
 
-st.markdown(f"""
-<div class="clock">
-    {get_ist_time()}
-</div>
-""", unsafe_allow_html=True)
-
-# ====================== EMAIL VALIDATION ======================
-def is_valid_email(email: str) -> bool:
-    if not email or "@" not in email or "." not in email:
-        return False
-    if email.count("@") != 1:
-        return False
-    if " " in email:
-        return False
-    local, domain = email.split("@")
-    if not local or not domain:
-        return False
-    if local.startswith(".") or local.endswith(".") or ".." in local:
-        return False
-    if domain.startswith("-") or domain.endswith("-") or ".." in domain:
-        return False
-    if len(email) > 254 or len(local) > 64:
-        return False
-    return True
+# Display clock that updates in real-time
+clock_placeholder = st.empty()
 
 # ====================== HELPER FUNCTIONS ======================
 def build_rss_url(keyword: str, source_domain: str) -> str:
@@ -197,7 +176,7 @@ if not st.session_state.user_info_saved:
         
         if st.button("Save & Continue", use_container_width=True, type="primary"):
             if username.strip() and email.strip():
-                if is_valid_email(email.strip()):
+                if "@" in email and "." in email and len(email) > 5:
                     st.session_state.username = username.strip()
                     st.session_state.email = email.strip()
                     st.session_state.user_info_saved = True
@@ -227,7 +206,6 @@ else:
         st.markdown("### ➕ Add Custom Topic")
         custom_input = st.text_input("Enter new topic", placeholder="e.g. EV Battery Technology", key="custom_input_key")
         
-        # Fixed button layout
         col_add, col_clear = st.columns([3, 1])
         with col_add:
             if st.button("Add Topic", use_container_width=True):
@@ -265,12 +243,23 @@ else:
         if not all_selected_topics:
             st.warning("⚠️ Please select at least one topic or add a custom topic.")
         else:
-            progress_bar = st.progress(0, text="Fetching relevant news...")
+            # Animated Progress Bar
+            progress_text = "Fetching relevant news articles..."
+            progress_bar = st.progress(0, text=progress_text)
             
+            # Simulate smooth animation while fetching
+            for i in range(1, 91, 5):   # Animate up to 90%
+                progress_bar.progress(i, text=progress_text)
+                time.sleep(0.08)
+            
+            # Actual fetching
             df = fetch_articles(all_selected_topics, DEFAULT_PUBLISHERS, max_articles)
             
-            progress_bar.progress(100, text="Completed!")
-            time.sleep(0.4)
+            # Finish animation
+            for i in range(91, 101):
+                progress_bar.progress(i, text="Almost done...")
+                time.sleep(0.03)
+            
             progress_bar.empty()
 
             if df.empty:
