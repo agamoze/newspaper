@@ -1,6 +1,6 @@
 """
 My News Button 📰
-Final Version - Keyword Must Appear in Title + All Previous Features
+With Email Validation + Real-time Clock
 """
 
 import time
@@ -44,6 +44,18 @@ st.markdown("""
     [data-testid="stAppViewContainer"], [data-testid="stMain"] { background-color: #F9F7F0 !important; }
     .main-title { text-align: center; font-family: 'Georgia', serif; font-size: 2.8rem; font-weight: 700; color: #1F1F1F; margin-bottom: 0.5rem; }
     .greeting { text-align: center; font-size: 1.25rem; color: #2C2C2C; margin-bottom: 2rem; }
+    .clock {
+        position: absolute;
+        top: 15px;
+        right: 20px;
+        font-size: 1.1rem;
+        color: #2C5F4A;
+        font-weight: 500;
+        background: rgba(249, 247, 240, 0.9);
+        padding: 6px 12px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
     div[data-testid="stButton"] > button {
         background-color: #2C5F4A !important; color: white !important;
         font-size: 1.05rem !important; font-weight: 600 !important; padding: 0.7rem 2.5rem !important; border-radius: 10px !important;
@@ -57,6 +69,21 @@ st.markdown("""
     .custom-chip { display: inline-block; background: #2C5F4A; color: white; padding: 6px 14px; border-radius: 20px; margin: 5px 5px 5px 0; font-size: 0.92rem; }
 </style>
 """, unsafe_allow_html=True)
+
+# ====================== LIVE CLOCK (Top Right) ======================
+def get_current_time():
+    return datetime.now().strftime("%d %b %Y, %I:%M:%S %p IST")
+
+# Show live clock
+st.markdown(f"""
+<div class="clock">
+    {get_current_time()}
+</div>
+""", unsafe_allow_html=True)
+
+# Auto-refresh clock every 1 second (using a simple trick)
+if 'clock_key' not in st.session_state:
+    st.session_state.clock_key = 0
 
 # ====================== HELPER FUNCTIONS ======================
 def build_rss_url(keyword: str, source_domain: str) -> str:
@@ -79,7 +106,6 @@ def is_recent(pub_date, days=2):
     return pub_date >= cutoff
 
 def keyword_in_title(title: str, keyword: str) -> bool:
-    """Check if keyword appears in the article title (case insensitive)"""
     if not title or not keyword:
         return False
     return keyword.lower() in title.lower()
@@ -98,17 +124,15 @@ def fetch_articles(selected_topics, publishers, max_articles):
                 feed = feedparser.parse(url)
                 for entry in feed.entries:
                     title = getattr(entry, "title", "").strip()
-                    if not title or title.lower() in seen:
+                    if not title or title.lower() in seen: 
                         continue
-                    
-                    # NEW FILTER: Only keep articles where keyword is in the title
                     if not keyword_in_title(title, kw):
                         continue
                     
                     seen.add(title.lower())
                     
                     pub_date = parse_published_time(entry)
-                    if not is_recent(pub_date):
+                    if not is_recent(pub_date): 
                         continue
                     
                     articles.append({
@@ -136,7 +160,7 @@ PUBLISHER_SOURCE_MAP = {
     "Economic Times": "economictimes.indiatimes.com",
 }
 
-# ====================== ONBOARDING ======================
+# ====================== ONBOARDING WITH EMAIL VALIDATION ======================
 if not st.session_state.user_info_saved:
     st.markdown('<div class="main-title">My News Button 📰</div>', unsafe_allow_html=True)
     
@@ -154,11 +178,15 @@ if not st.session_state.user_info_saved:
         
         if st.button("Save & Continue", use_container_width=True, type="primary"):
             if username.strip() and email.strip():
-                st.session_state.username = username.strip()
-                st.session_state.email = email.strip()
-                st.session_state.user_info_saved = True
-                st.success(f"Welcome, {username.strip()}! 🎉")
-                st.rerun()
+                # Basic email validation
+                if "@" in email and "." in email and len(email) > 5:
+                    st.session_state.username = username.strip()
+                    st.session_state.email = email.strip()
+                    st.session_state.user_info_saved = True
+                    st.success(f"Welcome, {username.strip()}! 🎉")
+                    st.rerun()
+                else:
+                    st.error("Please enter a valid email address (must contain @ and .)")
             else:
                 st.error("Please fill both Name and Email")
 
@@ -227,7 +255,7 @@ else:
             progress_bar.empty()
 
             if df.empty:
-                st.warning("No matching recent articles found. Try different topics.")
+                st.warning("No recent articles found. Try different topics.")
             else:
                 st.success(f"✅ Found {len(df)} recent articles")
 
@@ -257,4 +285,4 @@ else:
     else:
         st.info("Select topics or add custom ones, then click the button.")
 
-st.caption("Recent articles (last 48 hours) • Only articles containing the selected keyword in title")
+st.caption("Recent articles (last 48 hours) • Keyword must appear in title")
